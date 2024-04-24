@@ -1,13 +1,15 @@
 pub mod input {
     use crate::signals::Signals;
-    pub fn read_input(signals: &Signals) {
+    use std::sync::mpsc::Sender;
+    pub fn read_input(wakeups: &Sender<String>, signals: &Signals) {
         while signals.run.load(std::sync::atomic::Ordering::Relaxed) {
             let mut input = String::new();
             std::io::stdin().read_line(&mut input).unwrap();
-            let input = input.trim();
+            let input = input.trim().to_lowercase();
+            let args = input.split_whitespace().collect::<Vec<&str>>();
 
-            match input.to_lowercase().as_str() {
-                "exit" => {
+            match args.as_slice() {
+                ["exit"] => {
                     signals
                         .run
                         .store(false, std::sync::atomic::Ordering::Relaxed);
@@ -15,8 +17,16 @@ pub mod input {
                         .update
                         .store(true, std::sync::atomic::Ordering::Relaxed);
                 }
+                ["wakeup", hostname] => {
+                    if signals.is_manager.load(std::sync::atomic::Ordering::Relaxed) {
+                        println!("Sending wakeup to {}", hostname);
+                        wakeups.send(hostname.to_string()).unwrap();
+                    } else {
+                        println!("You are not the manager.");
+                    }
+                }
                 _ => {
-                    println!("Invalid input. Please enter 'exit' to quit.");
+                    println!("Invalid input.");
                 }
             }
         }
@@ -24,12 +34,12 @@ pub mod input {
 }
 
 pub mod output {
-    use crate::{delays::WAIT_DELAY, pcinfo::PCInfo, signals::Signals};
     use std::collections::HashMap;
     use std::sync::{
         Mutex,
         atomic::Ordering
     };
+    use crate::{delays::WAIT_DELAY, pcinfo::PCInfo, signals::Signals};
 
     fn make_entry(name: &str, mac: &str, ip: &str, status: &str) -> String {
         format!("{:<20} {:<21} {:<17} {:<8}\n", name, mac, ip, status)
@@ -58,9 +68,9 @@ pub mod output {
         )
     }
 
-    fn make_table(m_pc_map: &Mutex<HashMap<String, PCInfo>>) -> String {
+    fn make_table(m_pc_map: &Mutex<HashMap<String, PCInfo>>, is_manager: bool) -> String {
         let pc_map = m_pc_map.lock().unwrap();
-        let mut table = make_header(false);
+        let mut table = make_header(is_manager);
         for pc_info in pc_map.values() {
             table.push_str(&entry_to_string(pc_info));
         }
@@ -69,7 +79,8 @@ pub mod output {
 
     pub fn write_output(pc_map: &Mutex<HashMap<String, PCInfo>>, signals: &Signals) {
         while signals.run.load(Ordering::Relaxed) {
-            println!("{}", make_table(pc_map));
+            let is_manager = signals.is_manager.load(Ordering::Relaxed);
+            println!("{}", make_table(pc_map, is_manager));
             signals.update.store(false, Ordering::Relaxed);
             while !signals.update.load(Ordering::Relaxed) {
                 std::thread::sleep(WAIT_DELAY);
