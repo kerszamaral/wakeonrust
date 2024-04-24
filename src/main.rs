@@ -5,7 +5,7 @@ mod signals;
 mod subservices;
 use pcinfo::PCInfo;
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::thread;
 
 fn main() {
@@ -29,22 +29,25 @@ fn main() {
     pc_map.insert(pc1.get_name().clone(), pc1);
     pc_map.insert(pc2.get_name().clone(), pc2);
 
-    let apc_map = Arc::new(pc_map);
+    let apc_map = Arc::new(Mutex::new(pc_map));
 
     let mut thrds = Vec::<std::thread::JoinHandle<()>>::new();
 
     let signals = Arc::new(signals::Signals::new());
-    let sig2 = Arc::clone(&signals);
-    let sig3 = Arc::clone(&signals);
-
+    
+    let apc_write = Arc::clone(&apc_map);
+    let sigwrite = Arc::clone(&signals);
     thrds.push(thread::spawn(move || {
-        subservices::interface::output::write_output(&apc_map, &sig2);
+        subservices::interface::output::write_output(&apc_write, &sigwrite);
+    }));
+    
+    let sigread = Arc::clone(&signals);
+    thrds.push(thread::spawn(move || {
+        subservices::interface::input::read_input(&sigread);
     }));
 
-    thrds.push(thread::spawn(move || {
-        subservices::interface::input::read_input(&sig3);
-    }));
 
+    
     for thrd in thrds.into_iter() {
         thrd.join().unwrap();
     }
