@@ -7,11 +7,11 @@ Create a struct called PCInfo with the following fields:
 - is_manager: bool
 */
 
-use std::net::Ipv4Addr;
+use std::net::IpAddr;
 extern crate mac_address;
 use mac_address::MacAddress;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum PCStatus {
     Online,
     Offline,
@@ -21,17 +21,17 @@ pub enum PCStatus {
 pub struct PCInfo {
     name: String,
     mac: MacAddress,
-    ip: Ipv4Addr,
+    ip: IpAddr,
     status: PCStatus,
     is_manager: bool,
 }
 
 impl PCInfo {
-    pub fn new(name: String, mac: MacAddress, ip: Ipv4Addr, status: PCStatus, is_manager: bool) -> PCInfo {
+    pub fn new(name: String, mac: MacAddress, ip: IpAddr, status: PCStatus, is_manager: bool) -> PCInfo {
         PCInfo {
             name,
             mac,
-            ip,
+            ip: ip.to_canonical(),
             status,
             is_manager,
         }
@@ -45,7 +45,7 @@ impl PCInfo {
         &self.mac
     }
 
-    pub fn get_ip(&self) -> &Ipv4Addr {
+    pub fn get_ip(&self) -> &IpAddr {
         &self.ip
     }
 
