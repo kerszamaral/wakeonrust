@@ -23,8 +23,8 @@ fn main() {
 
     let signals = Arc::new(signals::Signals::new());
 
-    let apc_out = Arc::clone(&apc_map);
     let sigwrite = Arc::clone(&signals);
+    let apc_out = Arc::clone(&apc_map);
     thrds.push(thread::spawn(move || {
         interface::output::write_output(&sigwrite, &apc_out);
     }));
@@ -46,7 +46,7 @@ fn main() {
     }));
 
     thrds.push(thread::spawn(move || {
-        management::initialize(&signals, &new_pc_rx, &wake_rx, &sleep_status_rx)
+        management::initialize(&signals, &apc_map, &new_pc_rx, &wake_rx, &sleep_status_rx)
     }));
 
     for thrd in thrds.into_iter() {
