@@ -1,7 +1,7 @@
 pub mod input {
     use crate::signals::Signals;
     use std::sync::mpsc::Sender;
-    pub fn read_input(wakeups: &Sender<String>, signals: &Signals) {
+    pub fn read_input(signals: &Signals, wakeups: &Sender<String>) {
         while signals.run.load(std::sync::atomic::Ordering::Relaxed) {
             let mut input = String::new();
             std::io::stdin().read_line(&mut input).unwrap();
@@ -77,7 +77,7 @@ pub mod output {
         table
     }
 
-    pub fn write_output(pc_map: &Mutex<HashMap<String, PCInfo>>, signals: &Signals) {
+    pub fn write_output(signals: &Signals, pc_map: &Mutex<HashMap<String, PCInfo>>) {
         while signals.run.load(Ordering::Relaxed) {
             let is_manager = signals.is_manager.load(Ordering::Relaxed);
             println!("{}", make_table(pc_map, is_manager));
