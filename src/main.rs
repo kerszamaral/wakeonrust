@@ -62,6 +62,11 @@ fn main() {
         discovery::initialize(&sigdisc, &new_pc_tx);
     }));
 
+    let sigmon = Arc::clone(&signals);
+    let apc_read = Arc::clone(&apc_map);
+    thrds.push(thread::spawn(move || {
+        monitoring::initialize(&sigmon, &apc_read, &sleep_status_tx);
+    }));
 
     for thrd in thrds.into_iter() {
         thrd.join().unwrap();

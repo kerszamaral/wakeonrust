@@ -3,14 +3,14 @@ pub const HEADER_SIZE: usize = 10;
 
 pub const MAGIC_NUMBER: u16 = 0xCA31;
 
-pub const DATA_PACKET: u16 = 0x0000;
+// pub const DATA_PACKET: u16 = 0x0000;
 pub const SSR_PACKET: u16 = 0x0001;
 pub const SSR_ACK_PACKET: u16 = 0x0002;
-pub const STR_PACKET: u16 = 0x0003;
-pub const SSE_PACKET: u16 = 0x0004;
+// pub const STR_PACKET: u16 = 0x0003;
+// pub const SSE_PACKET: u16 = 0x0004;
 pub const SSD_PACKET: u16 = 0x0005;
 pub const SSD_ACK_PACKET: u16 = 0x0006;
-pub const MAGIC_PACKET: u16 = 0x0007;
+// pub const MAGIC_PACKET: u16 = 0x0007;
 
 pub fn make_header(packet_type: u16, length: usize) -> [u8;HEADER_SIZE] {
     let length = length as u16;
