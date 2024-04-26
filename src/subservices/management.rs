@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::net::{SocketAddr, UdpSocket};
 use std::sync::{atomic::Ordering, mpsc::Receiver, Mutex};
 
-mod exit {
+pub mod exit {
     use super::*;
 
     pub fn sender(signals: &Signals) {
@@ -48,13 +48,17 @@ mod exit {
     }
 }
 
-mod wakeup {
+pub mod wakeup {
     use crate::packets::make_wakeup_packet;
 
     use super::*;
 
-    pub fn sender(signals: &Signals, wake_rx: &Receiver<String>, m_pc_map: &Mutex<HashMap<String, PCInfo>>) {
-        let addr = SocketAddr::from(([0,0,0,0], WAKEUP_PORT));
+    pub fn sender(
+        signals: &Signals,
+        wake_rx: &Receiver<String>,
+        m_pc_map: &Mutex<HashMap<String, PCInfo>>,
+    ) {
+        let addr = SocketAddr::from(([0, 0, 0, 0], WAKEUP_PORT));
         let socket = UdpSocket::bind(addr).unwrap();
         socket.set_broadcast(true).unwrap();
 
@@ -66,12 +70,10 @@ mod wakeup {
                     if *pc_info.get_status() == PCStatus::Offline {
                         let wakeup_packet = make_wakeup_packet(pc_info.get_mac());
                         socket.send_to(&wakeup_packet, addr).unwrap();
-                    }
-                    else {
+                    } else {
                         println!("{} is not sleeping", hostname);
                     }
-                }
-                else {
+                } else {
                     println!("PC not found");
                 }
             }
@@ -79,12 +81,38 @@ mod wakeup {
     }
 }
 
+pub mod update {
+    use super::*;
 
-pub fn initialize(
-    _signals: &Signals,
-    _pc_map: &Mutex<HashMap<String, PCInfo>>,
-    _new_pc_rx: &Receiver<PCInfo>,
-    _wake_rx: &Receiver<String>,
-    _sleep_status_rx: &Receiver<(String, PCStatus)>,
-) {
+    pub fn add_pcs(
+        signals: &Signals,
+        pc_map: &Mutex<HashMap<String, PCInfo>>,
+        new_pc_rx: &Receiver<PCInfo>,
+    ) {
+        while signals.run.load(Ordering::Relaxed) {
+            std::thread::sleep(CHECK_DELAY);
+            if let Ok(pc_info) = new_pc_rx.try_recv() {
+                let mut pc_map = pc_map.lock().unwrap();
+                pc_map.insert(pc_info.get_hostname().clone(), pc_info);
+                signals.update.store(true, Ordering::Relaxed);
+            }
+        }
+    }
+
+    pub fn update_statuses(
+        signals: &Signals,
+        pc_map: &Mutex<HashMap<String, PCInfo>>,
+        sleep_status_rx: &Receiver<(String, PCStatus)>,
+    ) {
+        while signals.run.load(Ordering::Relaxed) {
+            std::thread::sleep(CHECK_DELAY);
+            if let Ok((hostname, status)) = sleep_status_rx.try_recv() {
+                let mut pc_map = pc_map.lock().unwrap();
+                if let Some(pc_info) = pc_map.get_mut(&hostname) {
+                    pc_info.set_status(status);
+                    signals.update.store(true, Ordering::Relaxed);
+                }
+            }
+        }
+    }
 }

@@ -45,8 +45,34 @@ fn main() {
         monitoring::initialize(&sigmon, &apc_mon, &sleep_status_tx);
     }));
 
+    
+    let sigexit_send = Arc::clone(&signals);
     thrds.push(thread::spawn(move || {
-        management::initialize(&signals, &apc_map, &new_pc_rx, &wake_rx, &sleep_status_rx)
+        management::exit::sender(&sigexit_send);
+    }));
+
+    let sigexit_recv = Arc::clone(&signals);
+    let apc_exit = Arc::clone(&apc_map);
+    thrds.push(thread::spawn(move || {
+        management::exit::receiver(&sigexit_recv, &apc_exit);
+    }));
+
+    let sigwake_send = Arc::clone(&signals);
+    let apc_wake = Arc::clone(&apc_map);
+    thrds.push(thread::spawn(move || {
+        management::wakeup::sender(&sigwake_send, &wake_rx, &apc_wake);
+    }));
+
+    let sigupdt_add = Arc::clone(&signals);
+    let apc_updt_add = Arc::clone(&apc_map);
+    thrds.push(thread::spawn(move || {
+        management::update::add_pcs(&sigupdt_add, &apc_updt_add, &new_pc_rx);
+    }));
+
+    let sigupdt_stat = Arc::clone(&signals);
+    let apc_updt_stat = Arc::clone(&apc_map);
+    thrds.push(thread::spawn(move || {
+        management::update::update_statuses(&sigupdt_stat, &apc_updt_stat, &sleep_status_rx);
     }));
 
     for thrd in thrds.into_iter() {
