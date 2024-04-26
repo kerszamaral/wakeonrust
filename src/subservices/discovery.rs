@@ -33,28 +33,24 @@ fn from_buffer(buf: &[u8], amt: usize) -> Option<(String, MacAddress)> {
 mod find {
     use super::*;
 
-    pub fn find_manager(signals: &Signals, socket: &UdpSocket, new_pc_tx: &Sender<PCInfo>) -> bool {
-        while signals.run.load(Ordering::Relaxed) {
-            let mut buf = [0; BUFFER_SIZE];
-            match socket.recv_from(&mut buf) {
-                Ok((amt, src)) => {
-                    let (hostname, mac) = match from_buffer(&buf, amt) {
-                        Some((hostname, mac)) => (hostname, mac),
-                        None => return false,
-                    };
+    pub fn find_manager(socket: &UdpSocket, new_pc_tx: &Sender<PCInfo>) -> bool {
+        let mut buf = [0; BUFFER_SIZE];
+        match socket.recv_from(&mut buf) {
+            Ok((amt, src)) => {
+                let (hostname, mac) = match from_buffer(&buf, amt) {
+                    Some((hostname, mac)) => (hostname, mac),
+                    None => return false,
+                };
 
-                    let ip = src.ip().to_canonical();
-                    let new_manager =
-                        PCInfo::new(hostname, mac, ip, PCStatus::Online, true);
-                    new_pc_tx.send(new_manager).unwrap();
-                    return true;
-                }
-                Err(_) => {
-                    return false;
-                }
+                let ip = src.ip().to_canonical();
+                let new_manager = PCInfo::new(hostname, mac, ip, PCStatus::Online, true);
+                new_pc_tx.send(new_manager).unwrap();
+                return true;
+            }
+            Err(_) => {
+                return false;
             }
         }
-        false
     }
 }
 
@@ -112,7 +108,7 @@ pub fn initialize(signals: &Signals, new_pc_tx: &Sender<PCInfo>) {
         if signals.is_manager.load(Ordering::Relaxed) {
             listen_for_clients(&socket, &new_pc_tx, &ssra);
         } else {
-            let manager_found = find_manager(&signals, &socket, &new_pc_tx);
+            let manager_found = find_manager( &socket, &new_pc_tx);
 
             if manager_found {
                 signals.manager_found.store(true, Ordering::Relaxed);
