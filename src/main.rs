@@ -7,6 +7,7 @@ mod subservices;
 use crate::subservices::discovery;
 use crate::subservices::interface;
 use crate::subservices::monitoring;
+use crate::subservices::management;
 use pcinfo::PCInfo;
 use std::collections::HashMap;
 use std::sync::{mpsc::channel, Arc, Mutex};
@@ -14,18 +15,18 @@ use std::thread;
 
 fn main() {
     let apc_map = Arc::new(Mutex::new(HashMap::new()));
-    let (wake_tx, _wake_rx) = channel::<String>();
-    let (new_pc_tx, _new_pc_rx) = channel::<PCInfo>();
-    let (sleep_status_tx, _sleep_status_rx) = channel::<(String, pcinfo::PCStatus)>();
+    let (wake_tx, wake_rx) = channel::<String>();
+    let (new_pc_tx, new_pc_rx) = channel::<PCInfo>();
+    let (sleep_status_tx, sleep_status_rx) = channel::<(String, pcinfo::PCStatus)>();
 
     let mut thrds = Vec::<std::thread::JoinHandle<()>>::new();
 
     let signals = Arc::new(signals::Signals::new());
 
-    let apc_write = Arc::clone(&apc_map);
+    let apc_out = Arc::clone(&apc_map);
     let sigwrite = Arc::clone(&signals);
     thrds.push(thread::spawn(move || {
-        interface::output::write_output(&sigwrite, &apc_write);
+        interface::output::write_output(&sigwrite, &apc_out);
     }));
 
     let sigread = Arc::clone(&signals);
@@ -39,9 +40,13 @@ fn main() {
     }));
 
     let sigmon = Arc::clone(&signals);
-    let apc_read = Arc::clone(&apc_map);
+    let apc_mon = Arc::clone(&apc_map);
     thrds.push(thread::spawn(move || {
-        monitoring::initialize(&sigmon, &apc_read, &sleep_status_tx);
+        monitoring::initialize(&sigmon, &apc_mon, &sleep_status_tx);
+    }));
+
+    thrds.push(thread::spawn(move || {
+        management::initialize(&signals, &new_pc_rx, &wake_rx, &sleep_status_rx)
     }));
 
     for thrd in thrds.into_iter() {
