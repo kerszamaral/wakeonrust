@@ -1,8 +1,8 @@
 use self::find::find_manager;
 use self::listen::listen_for_clients;
 use crate::packets::{
-    check_packet, make_header, swap_packet_type, BUFFER_SIZE, HEADER_SIZE, SSR_ACK_PACKET,
-    SSR_PACKET,
+    check_packet, make_header, swap_packet_type, BUFFER_SIZE, HEADER_SIZE, SSD_ACK_PACKET,
+    SSD_PACKET,
 };
 use crate::pcinfo::{PCInfo, PCStatus};
 use crate::{
@@ -16,7 +16,7 @@ use std::sync::{atomic::Ordering, mpsc::Sender};
 
 fn from_buffer(buf: &[u8], amt: usize) -> Option<(String, MacAddress)> {
     let msg = &buf[..amt];
-    if !check_packet(&msg.to_vec(), SSR_PACKET) {
+    if !check_packet(&msg.to_vec(), SSD_PACKET) {
         return None;
     }
     let msg = &buf[HEADER_SIZE..amt];
@@ -97,12 +97,12 @@ pub fn initialize(signals: &Signals, new_pc_tx: &Sender<PCInfo>) {
 
     // Make the SSR packet and its ACK
     let ssr = [
-        make_header(SSR_PACKET, length).to_vec(),
+        make_header(SSD_PACKET, length).to_vec(),
         our_mac.bytes().to_vec(),
         our_name.as_bytes().to_vec(),
     ]
     .concat();
-    let ssra = swap_packet_type(&ssr, SSR_ACK_PACKET);
+    let ssra = swap_packet_type(&ssr, SSD_ACK_PACKET);
 
     while signals.run.load(Ordering::Relaxed) {
         if signals.is_manager.load(Ordering::Relaxed) {
