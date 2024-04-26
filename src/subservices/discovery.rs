@@ -42,8 +42,7 @@ mod find {
                     None => return false,
                 };
 
-                let ip = src.ip().to_canonical();
-                let new_manager = PCInfo::new(hostname, mac, ip, PCStatus::Online, true);
+                let new_manager = PCInfo::new(hostname, mac, src.ip(), PCStatus::Online, true);
                 new_pc_tx.send(new_manager).unwrap();
                 return true;
             }
@@ -65,9 +64,8 @@ mod listen {
                     Some((hostname, mac)) => (hostname, mac),
                     None => return,
                 };
-                let ip = src.ip().to_canonical();
-                let new_client = PCInfo::new(hostname, mac, ip, PCStatus::Online, false);
 
+                let new_client = PCInfo::new(hostname, mac, src.ip(), PCStatus::Online, false);
                 new_pc_tx.send(new_client).unwrap();
                 socket.send_to(&ssra, src).unwrap();
             }
@@ -108,7 +106,7 @@ pub fn initialize(signals: &Signals, new_pc_tx: &Sender<PCInfo>) {
         if signals.is_manager.load(Ordering::Relaxed) {
             listen_for_clients(&socket, &new_pc_tx, &ssra);
         } else {
-            let manager_found = find_manager( &socket, &new_pc_tx);
+            let manager_found = find_manager(&socket, &new_pc_tx);
 
             if manager_found {
                 signals.manager_found.store(true, Ordering::Relaxed);

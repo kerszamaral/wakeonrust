@@ -31,13 +31,17 @@ impl PCInfo {
         PCInfo {
             name,
             mac,
-            ip: ip.to_canonical(),
+            ip: ip,
             status,
             is_manager,
         }
     }
 
     pub fn get_name(&self) -> &String {
+        &self.name
+    }
+
+    pub fn get_hostname(&self) -> &String {
         &self.name
     }
 
@@ -55,6 +59,10 @@ impl PCInfo {
 
     pub fn get_is_manager(&self) -> &bool {
         &self.is_manager
+    }
+
+    pub fn set_status(&mut self, status: PCStatus) {
+        self.status = status;
     }
 }
 
