@@ -18,7 +18,10 @@ pub mod input {
                         .store(true, std::sync::atomic::Ordering::Relaxed);
                 }
                 ["wakeup", hostname] => {
-                    if signals.is_manager.load(std::sync::atomic::Ordering::Relaxed) {
+                    if signals
+                        .is_manager
+                        .load(std::sync::atomic::Ordering::Relaxed)
+                    {
                         println!("Sending wakeup to {}", hostname);
                         wakeups.send(hostname.to_string()).unwrap();
                     } else {
@@ -34,12 +37,9 @@ pub mod input {
 }
 
 pub mod output {
-    use std::collections::HashMap;
-    use std::sync::{
-        Mutex,
-        atomic::Ordering
-    };
     use crate::{delays::WAIT_DELAY, pcinfo::PCInfo, signals::Signals};
+    use std::collections::HashMap;
+    use std::sync::{atomic::Ordering, Mutex};
 
     fn make_entry(name: &str, mac: &str, ip: &str, status: &str) -> String {
         format!("{:<20} {:<21} {:<17} {:<8}\n", name, mac, ip, status)
@@ -81,8 +81,12 @@ pub mod output {
         while signals.run.load(Ordering::Relaxed) {
             let is_manager = signals.is_manager.load(Ordering::Relaxed);
             println!("{}", make_table(pc_map, is_manager));
-            signals.update.store(false, Ordering::Relaxed);
-            while !signals.update.load(Ordering::Relaxed) {
+
+            while !signals
+                .update
+                .compare_exchange(true, false, Ordering::Relaxed, Ordering::Relaxed)
+                .is_ok()
+            {
                 std::thread::sleep(WAIT_DELAY);
             }
         }
