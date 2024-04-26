@@ -1,3 +1,5 @@
+use mac_address::MacAddress;
+
 pub const BUFFER_SIZE: usize = 4096;
 pub const HEADER_SIZE: usize = 10;
 
@@ -7,7 +9,7 @@ pub const MAGIC_NUMBER: u16 = 0xCA31;
 pub const SSR_PACKET: u16 = 0x0001;
 pub const SSR_ACK_PACKET: u16 = 0x0002;
 // pub const STR_PACKET: u16 = 0x0003;
-// pub const SSE_PACKET: u16 = 0x0004;
+pub const SSE_PACKET: u16 = 0x0004;
 pub const SSD_PACKET: u16 = 0x0005;
 pub const SSD_ACK_PACKET: u16 = 0x0006;
 // pub const MAGIC_PACKET: u16 = 0x0007;
@@ -45,4 +47,13 @@ pub fn check_packet(packet: &[u8], expected_packet_type: u16) -> bool {
         return false;
     }
     true
+}
+
+pub fn make_wakeup_packet(mac: &MacAddress) -> Vec<u8> {
+    const FF_NUM: usize = 6;
+    const WOL_HEADER: [u8; FF_NUM] = [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF];
+    const MAC_NUM: usize = 16;
+    const MAC_SIZE: usize = 6;
+    let wol_payload: Vec<u8> = mac.bytes().iter().cycle().take(MAC_NUM*MAC_SIZE).cloned().collect();
+    [WOL_HEADER.to_vec(), wol_payload].concat()
 }
