@@ -13,7 +13,7 @@ pub mod input {
             }
             match tx.send(input.trim().to_lowercase()) {
                 Ok(_) => {}
-                Err(_) => break,
+                Err(_) => break, // The receiver has been dropped
             }
         });
         rx
