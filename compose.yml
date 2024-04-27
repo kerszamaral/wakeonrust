@@ -1,0 +1,29 @@
+name: wakeonrust
+
+services:
+  client:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    hostname: wakecli
+    container_name: wakecli
+    networks:
+      - default
+    stdin_open: true
+    tty: true
+    develop:
+      watch:
+        - action: rebuild
+          path: .
+
+  manager:
+    extends:
+      service: client
+    command: ["cargo", "run", "manager"]
+    hostname: wakemgr
+    container_name: wakemgr
+
+
+networks:
+  default:
+    driver: bridge

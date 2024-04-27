@@ -1,0 +1,11 @@
+docs/
+.vscode/
+tests/
+build/
+target/
+.gitignore
+install_deps.sh
+Dockerfile
+compose.yml
+.dockerignore
+README.md
