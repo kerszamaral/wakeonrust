@@ -68,6 +68,7 @@ pub mod wakeup {
                     if *pc_info.get_status() == PCStatus::Offline {
                         let wakeup_packet = make_wakeup_packet(pc_info.get_mac());
                         socket.send_to(&wakeup_packet, WAKEUP_ADDR).unwrap();
+                        println!("Waking up {}", hostname);
                     } else {
                         println!("{} is not sleeping", hostname);
                     }

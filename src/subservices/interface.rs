@@ -31,14 +31,13 @@ pub mod input {
                 }
                 ["wakeup", hostname] => {
                     if signals.is_manager() {
-                        println!("Sending wakeup to {}", hostname);
                         wakeups.send(hostname.to_string()).unwrap();
                     } else {
-                        println!("You are not the manager.");
+                        println!("Only the manager can send wakeups");
                     }
                 }
                 _ => {
-                    println!("Invalid input.");
+                    println!("Command not found");
                 }
             }
         }
@@ -89,6 +88,7 @@ pub mod output {
     pub fn write_output(signals: &Signals, m_pc_map: &Mutex<HashMap<String, PCInfo>>) {
         while signals.running() {
             let is_manager = signals.is_manager();
+            clearscreen::clear().unwrap();
             println!("{}", make_table(m_pc_map, is_manager));
 
             while signals.running() && !signals.has_update() {
