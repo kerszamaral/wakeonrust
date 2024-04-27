@@ -14,64 +14,63 @@ use std::sync::{mpsc::channel, Arc, Mutex};
 use std::thread;
 
 fn main() {
-    let apc_map = Arc::new(Mutex::new(HashMap::new()));
-    let (wake_tx, wake_rx) = channel::<String>();
+    let signals = Arc::new(signals::Signals::new());
+    let am_pc_map = Arc::new(Mutex::new(HashMap::new()));
+    let (wakeup_tx, wakeup_rx) = channel::<String>();
     let (new_pc_tx, new_pc_rx) = channel::<PCInfo>();
     let (sleep_status_tx, sleep_status_rx) = channel::<(String, pcinfo::PCStatus)>();
 
     let mut thrds = Vec::<std::thread::JoinHandle<()>>::new();
 
-    let signals = Arc::new(signals::Signals::new());
-
-    let sigwrite = Arc::clone(&signals);
-    let apc_out = Arc::clone(&apc_map);
+    let sigs = signals.clone();
+    let ampc = am_pc_map.clone();
     thrds.push(thread::spawn(move || {
-        interface::output::write_output(&sigwrite, &apc_out);
+        interface::output::write_output(&sigs, &ampc);
     }));
 
-    let sigread = Arc::clone(&signals);
+    let sigs = signals.clone();
     thrds.push(thread::spawn(move || {
-        interface::input::read_input(&sigread, &wake_tx);
+        interface::input::read_input(&sigs, wakeup_tx);
     }));
 
-    let sigdisc = Arc::clone(&signals);
+    let sigs = signals.clone();
     thrds.push(thread::spawn(move || {
-        discovery::initialize(&sigdisc, &new_pc_tx);
+        discovery::initialize(&sigs, new_pc_tx);
     }));
 
-    let sigmon = Arc::clone(&signals);
-    let apc_mon = Arc::clone(&apc_map);
+    let sigs = signals.clone();
+    let ampc = am_pc_map.clone();
     thrds.push(thread::spawn(move || {
-        monitoring::initialize(&sigmon, &apc_mon, &sleep_status_tx);
+        monitoring::initialize(&sigs, &ampc, sleep_status_tx);
     }));
 
-    let sigexit_send = Arc::clone(&signals);
+    let sigs = signals.clone();
     thrds.push(thread::spawn(move || {
-        management::exit::sender(&sigexit_send);
+        management::exit::sender(&sigs);
     }));
 
-    let sigexit_recv = Arc::clone(&signals);
-    let apc_exit = Arc::clone(&apc_map);
+    let sigs = signals.clone();
+    let ampc = am_pc_map.clone();
     thrds.push(thread::spawn(move || {
-        management::exit::receiver(&sigexit_recv, &apc_exit);
+        management::exit::receiver(&sigs, &ampc);
     }));
 
-    let sigwake_send = Arc::clone(&signals);
-    let apc_wake = Arc::clone(&apc_map);
+    let sigs = signals.clone();
+    let ampc = am_pc_map.clone();
     thrds.push(thread::spawn(move || {
-        management::wakeup::sender(&sigwake_send, &wake_rx, &apc_wake);
+        management::wakeup::sender(&sigs, &ampc, wakeup_rx);
     }));
 
-    let sigupdt_add = Arc::clone(&signals);
-    let apc_updt_add = Arc::clone(&apc_map);
+    let sigs = signals.clone();
+    let ampc = am_pc_map.clone();
     thrds.push(thread::spawn(move || {
-        management::update::add_pcs(&sigupdt_add, &apc_updt_add, &new_pc_rx);
+        management::update::add_pcs(&sigs, &ampc, new_pc_rx);
     }));
 
-    let sigupdt_stat = Arc::clone(&signals);
-    let apc_updt_stat = Arc::clone(&apc_map);
+    let sigs = signals.clone();
+    let ampc = am_pc_map.clone();
     thrds.push(thread::spawn(move || {
-        management::update::update_statuses(&sigupdt_stat, &apc_updt_stat, &sleep_status_rx);
+        management::update::update_statuses(&sigs, &ampc, sleep_status_rx);
     }));
 
     for thrd in thrds.into_iter() {

@@ -56,8 +56,8 @@ pub mod wakeup {
 
     pub fn sender(
         signals: &Signals,
-        wake_rx: &Receiver<String>,
         m_pc_map: &Mutex<HashMap<String, PCInfo>>,
+        wake_rx: Receiver<String>,
     ) {
         let socket = UdpSocket::bind(WAKEUP_SEND_ADDR).unwrap();
         socket.set_broadcast(true).unwrap();
@@ -86,13 +86,13 @@ pub mod update {
 
     pub fn add_pcs(
         signals: &Signals,
-        pc_map: &Mutex<HashMap<String, PCInfo>>,
-        new_pc_rx: &Receiver<PCInfo>,
+        m_pc_map: &Mutex<HashMap<String, PCInfo>>,
+        new_pc_rx: Receiver<PCInfo>,
     ) {
         while signals.run.load(Ordering::Relaxed) {
             std::thread::sleep(CHECK_DELAY);
             if let Ok(pc_info) = new_pc_rx.try_recv() {
-                let mut pc_map = pc_map.lock().unwrap();
+                let mut pc_map = m_pc_map.lock().unwrap();
                 pc_map.insert(pc_info.get_hostname().clone(), pc_info);
                 signals.update.store(true, Ordering::Relaxed);
             }
@@ -101,13 +101,13 @@ pub mod update {
 
     pub fn update_statuses(
         signals: &Signals,
-        pc_map: &Mutex<HashMap<String, PCInfo>>,
-        sleep_status_rx: &Receiver<(String, PCStatus)>,
+        m_pc_map: &Mutex<HashMap<String, PCInfo>>,
+        sleep_status_rx: Receiver<(String, PCStatus)>,
     ) {
         while signals.run.load(Ordering::Relaxed) {
             std::thread::sleep(CHECK_DELAY);
             if let Ok((hostname, status)) = sleep_status_rx.try_recv() {
-                let mut pc_map = pc_map.lock().unwrap();
+                let mut pc_map = m_pc_map.lock().unwrap();
                 if let Some(pc_info) = pc_map.get_mut(&hostname) {
                     pc_info.set_status(status);
                     signals.update.store(true, Ordering::Relaxed);

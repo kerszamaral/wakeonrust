@@ -73,7 +73,7 @@ mod listen {
     }
 }
 
-pub fn initialize(signals: &Signals, new_pc_tx: &Sender<PCInfo>) {
+pub fn initialize(signals: &Signals, new_pc_tx: Sender<PCInfo>) {
     // Setup the socket
     let socket = UdpSocket::bind(DISCOVERY_ADDR).expect("Failed to bind monitor socket");
     socket

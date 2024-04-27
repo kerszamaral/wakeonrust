@@ -55,8 +55,8 @@ mod listen {
 
 pub fn initialize(
     signals: &Signals,
-    pc_map: &Mutex<HashMap<String, PCInfo>>,
-    sleep_status: &Sender<(String, PCStatus)>,
+    m_pc_map: &Mutex<HashMap<String, PCInfo>>,
+    sleep_status: Sender<(String, PCStatus)>,
 ) {
     let socket = UdpSocket::bind(MONITOR_ADDR).expect("Failed to bind monitor socket");
     socket
@@ -70,7 +70,7 @@ pub fn initialize(
         if signals.is_manager.load(Ordering::Relaxed) {
             std::thread::sleep(CHECK_DELAY);
 
-            let pc_map = pc_map.lock().unwrap();
+            let pc_map = m_pc_map.lock().unwrap();
             let pcs = pc_map
                 .iter()
                 .map(|(k, v)| (k, v.get_ip(), v.get_status()))
