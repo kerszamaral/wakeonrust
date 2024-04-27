@@ -11,10 +11,19 @@ use crate::subservices::monitoring;
 use pcinfo::PCInfo;
 use std::collections::HashMap;
 use std::sync::{mpsc::channel, Arc, Mutex};
-use std::thread;
+use std::{env, thread};
 
 fn main() {
-    let signals = Arc::new(signals::Signals::new());
+    let args = env::args().collect::<Vec<String>>();
+    
+    let start_as_manager = if args.len() > 1 && args[1] == "manager" {
+        true
+    } else {
+        false
+    };
+
+    let signals = Arc::new(signals::Signals::new(start_as_manager));
+    
     let am_pc_map = Arc::new(Mutex::new(HashMap::new()));
     let (wakeup_tx, wakeup_rx) = channel::<String>();
     let (new_pc_tx, new_pc_rx) = channel::<PCInfo>();

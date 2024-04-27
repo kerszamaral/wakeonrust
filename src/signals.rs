@@ -10,11 +10,11 @@ pub struct Signals {
 }
 
 impl Signals {
-    pub fn new() -> Self {
+    pub fn new(start_as_manager: bool) -> Self {
         Self {
             run: AtomicBool::new(true),
             update: AtomicBool::new(false),
-            is_manager: AtomicBool::new(false),
+            is_manager: AtomicBool::new(start_as_manager),
             manager_found: AtomicBool::new(false),
         }
     }
