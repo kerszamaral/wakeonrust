@@ -1,17 +1,17 @@
-use crate::delays::CHECK_DELAY;
+use crate::delays::{CHECK_DELAY, WAIT_DELAY};
 use crate::packets::{check_packet, make_header, BUFFER_SIZE, SSR_ACK_PACKET, SSR_PACKET};
 use crate::pcinfo::{PCInfo, PCStatus};
 use crate::addrs::{MONITOR_ADDR, MONITOR_PORT};
 use crate::signals::Signals;
 use std::collections::HashMap;
 use std::net::{IpAddr, SocketAddr, UdpSocket};
-use std::sync::{atomic::Ordering, mpsc::Sender, Mutex};
+use std::sync::{mpsc::Sender, Mutex};
 
 mod listen {
     use super::*;
 
     fn response_from_client(signals: &Signals, socket: &UdpSocket) -> PCStatus {
-        while signals.run.load(Ordering::Relaxed) {
+        while signals.running() {
             let mut buf = [0; BUFFER_SIZE];
             match socket.recv_from(&mut buf) {
                 Ok((amt, _src)) => {
@@ -36,7 +36,7 @@ mod listen {
     ) {
         let ssr = make_header(SSR_PACKET, 0);
         for (hostname, ip, status) in pcs {
-            if !signals.run.load(Ordering::Relaxed) {
+            if !signals.running() {
                 break;
             }
             let addr = SocketAddr::new(*ip, MONITOR_PORT);
@@ -60,14 +60,11 @@ pub fn initialize(
 ) {
     let socket = UdpSocket::bind(MONITOR_ADDR).expect("Failed to bind monitor socket");
     socket
-        .set_nonblocking(true)
-        .expect("Failed to set monitor socket to non-blocking");
-    socket
-        .set_read_timeout(Some(CHECK_DELAY))
+        .set_read_timeout(Some(WAIT_DELAY))
         .expect("Failed to set monitor socket read timeout");
 
-    while signals.run.load(Ordering::Relaxed) {
-        if signals.is_manager.load(Ordering::Relaxed) {
+    while signals.running() {
+        if signals.is_manager() {
             std::thread::sleep(CHECK_DELAY);
 
             let pc_map = m_pc_map.lock().unwrap();
@@ -90,5 +87,6 @@ pub fn initialize(
                 Err(_) => {}
             }
         }
+        std::thread::sleep(WAIT_DELAY);
     }
 }

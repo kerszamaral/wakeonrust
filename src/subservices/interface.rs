@@ -17,7 +17,7 @@ pub mod input {
 
     pub fn read_input(signals: &Signals, wakeups: Sender<String>) {
         let stdin = async_stdin();
-        while signals.run.load(std::sync::atomic::Ordering::Relaxed) {
+        while signals.running() {
             std::thread::sleep(INPUT_DELAY);
             let input = match stdin.try_recv() {
                 Ok(input) => input,
@@ -30,10 +30,7 @@ pub mod input {
                     signals.exit();
                 }
                 ["wakeup", hostname] => {
-                    if signals
-                        .is_manager
-                        .load(std::sync::atomic::Ordering::Relaxed)
-                    {
+                    if signals.is_manager() {
                         println!("Sending wakeup to {}", hostname);
                         wakeups.send(hostname.to_string()).unwrap();
                     } else {
@@ -51,7 +48,7 @@ pub mod input {
 pub mod output {
     use crate::{delays::WAIT_DELAY, pcinfo::PCInfo, signals::Signals};
     use std::collections::HashMap;
-    use std::sync::{atomic::Ordering, Mutex};
+    use std::sync::Mutex;
 
     fn make_entry(name: &str, mac: &str, ip: &str, status: &str) -> String {
         format!("{:<20} {:<21} {:<17} {:<8}\n", name, mac, ip, status)
@@ -90,15 +87,11 @@ pub mod output {
     }
 
     pub fn write_output(signals: &Signals, m_pc_map: &Mutex<HashMap<String, PCInfo>>) {
-        while signals.run.load(Ordering::Relaxed) {
-            let is_manager = signals.is_manager.load(Ordering::Relaxed);
+        while signals.running() {
+            let is_manager = signals.is_manager();
             println!("{}", make_table(m_pc_map, is_manager));
 
-            while !signals
-                .update
-                .compare_exchange(true, false, Ordering::Relaxed, Ordering::Relaxed)
-                .is_ok()
-            {
+            while signals.running() && !signals.has_update() {
                 std::thread::sleep(WAIT_DELAY);
             }
         }

@@ -11,7 +11,7 @@ use crate::{
 };
 use mac_address::MacAddress;
 use std::net::UdpSocket;
-use std::sync::{atomic::Ordering, mpsc::Sender};
+use std::sync::mpsc::Sender;
 
 fn from_buffer(buf: &[u8], amt: usize, packet_type: PacketType) -> Option<(String, MacAddress)> {
     let msg = &buf[..amt];
@@ -99,22 +99,21 @@ pub fn initialize(signals: &Signals, new_pc_tx: Sender<PCInfo>) {
     .concat();
     let ssra = swap_packet_type(&ssr, SSD_ACK_PACKET);
 
-    while signals.run.load(Ordering::Relaxed) {
-        if signals.is_manager.load(Ordering::Relaxed) {
+    while signals.running() {
+        if signals.is_manager() {
             listen_for_clients(&socket, &new_pc_tx, &ssra);
         } else {
             let manager_found = find_manager(&socket, &new_pc_tx);
 
             if manager_found {
-                signals.manager_found.store(true, Ordering::Relaxed);
+                signals.found_manager();
             } else {
                 socket.set_broadcast(true).unwrap();
                 socket.send_to(&ssr, DISCOVERY_BROADCAST_ADDR).unwrap();
                 socket.set_broadcast(false).unwrap();
             }
 
-            while signals.manager_found.load(Ordering::Relaxed)
-                && signals.run.load(Ordering::Relaxed)
+            while signals.running() && signals.manager_found()
             {
                 std::thread::sleep(CHECK_DELAY);
             }
