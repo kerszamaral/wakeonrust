@@ -13,5 +13,6 @@ pub const WAKEUP_ADDR: SocketAddr = SocketAddr::new(BROADCAST_ADDR, WAKEUP_PORT)
 pub const WAKEUP_SEND_ADDR: SocketAddr = SocketAddr::new(DEFAULT_ADDR, WAKEUP_SEND_PORT);
 pub const DISCOVERY_ADDR: SocketAddr = SocketAddr::new(DEFAULT_ADDR, DISCOVERY_PORT);
 pub const DISCOVERY_BROADCAST_ADDR: SocketAddr = SocketAddr::new(BROADCAST_ADDR, DISCOVERY_PORT);
-pub const EXIT_ADDR: SocketAddr = SocketAddr::new(BROADCAST_ADDR, EXIT_PORT);
+pub const EXIT_ADDR: SocketAddr = SocketAddr::new(DEFAULT_ADDR, EXIT_PORT);
+pub const EXIT_BROADCAST_ADDR: SocketAddr = SocketAddr::new(BROADCAST_ADDR, EXIT_PORT);
 pub const MONITOR_ADDR: SocketAddr = SocketAddr::new(DEFAULT_ADDR, MONITOR_PORT);

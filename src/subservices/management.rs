@@ -7,16 +7,16 @@ use std::net::UdpSocket;
 use std::sync::{atomic::Ordering, mpsc::Receiver, Mutex};
 
 pub mod exit {
-    use crate::addrs::EXIT_ADDR;
+    use crate::addrs::{EXIT_ADDR, EXIT_BROADCAST_ADDR};
 
     use super::*;
 
     pub fn sender(signals: &Signals) {
         signals.run.store(false, Ordering::Relaxed);
-        let socket = UdpSocket::bind(EXIT_ADDR).unwrap();
+        let socket = UdpSocket::bind(EXIT_BROADCAST_ADDR).unwrap();
         socket.set_broadcast(true).unwrap();
         let exit_packet = make_header(SSE_PACKET, 0);
-        socket.send_to(&exit_packet, EXIT_ADDR).unwrap();
+        socket.send_to(&exit_packet, EXIT_BROADCAST_ADDR).unwrap();
     }
 
     pub fn receiver(signals: &Signals, m_pc_map: &Mutex<HashMap<String, PCInfo>>) {
