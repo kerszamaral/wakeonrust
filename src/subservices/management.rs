@@ -7,13 +7,15 @@ use std::net::UdpSocket;
 use std::sync::{atomic::Ordering, mpsc::Receiver, Mutex};
 
 pub mod exit {
-    use crate::addrs::{EXIT_ADDR, EXIT_BROADCAST_ADDR};
+    use crate::addrs::{EXIT_ADDR, EXIT_BROADCAST_ADDR, EXIT_SEND_ADDR};
 
     use super::*;
 
     pub fn sender(signals: &Signals) {
-        signals.run.store(false, Ordering::Relaxed);
-        let socket = UdpSocket::bind(EXIT_BROADCAST_ADDR).unwrap();
+        while signals.run.load(Ordering::Relaxed) {
+            std::thread::sleep(CHECK_DELAY);
+        }
+        let socket = UdpSocket::bind(EXIT_SEND_ADDR).unwrap();
         socket.set_broadcast(true).unwrap();
         let exit_packet = make_header(SSE_PACKET, 0);
         socket.send_to(&exit_packet, EXIT_BROADCAST_ADDR).unwrap();

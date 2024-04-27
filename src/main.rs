@@ -1,13 +1,13 @@
+mod addrs;
 mod delays;
 mod packets;
 mod pcinfo;
-mod addrs;
 mod signals;
 mod subservices;
 use crate::subservices::discovery;
 use crate::subservices::interface;
-use crate::subservices::monitoring;
 use crate::subservices::management;
+use crate::subservices::monitoring;
 use pcinfo::PCInfo;
 use std::collections::HashMap;
 use std::sync::{mpsc::channel, Arc, Mutex};
@@ -45,7 +45,6 @@ fn main() {
         monitoring::initialize(&sigmon, &apc_mon, &sleep_status_tx);
     }));
 
-    
     let sigexit_send = Arc::clone(&signals);
     thrds.push(thread::spawn(move || {
         management::exit::sender(&sigexit_send);

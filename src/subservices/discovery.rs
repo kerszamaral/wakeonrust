@@ -1,11 +1,11 @@
 use self::find::find_manager;
 use self::listen::listen_for_clients;
+use crate::addrs::{DISCOVERY_ADDR, DISCOVERY_BROADCAST_ADDR};
 use crate::packets::{
     check_packet, make_header, swap_packet_type, BUFFER_SIZE, HEADER_SIZE, SSD_ACK_PACKET,
     SSD_PACKET,
 };
 use crate::pcinfo::{PCInfo, PCStatus};
-use crate::addrs::{DISCOVERY_ADDR, DISCOVERY_BROADCAST_ADDR};
 use crate::{
     delays::{CHECK_DELAY, WAIT_DELAY},
     signals::Signals,
@@ -114,7 +114,9 @@ pub fn initialize(signals: &Signals, new_pc_tx: &Sender<PCInfo>) {
                 socket.set_broadcast(false).unwrap();
             }
 
-            while signals.manager_found.load(Ordering::Relaxed) {
+            while signals.manager_found.load(Ordering::Relaxed)
+                && signals.run.load(Ordering::Relaxed)
+            {
                 std::thread::sleep(CHECK_DELAY);
             }
         }
