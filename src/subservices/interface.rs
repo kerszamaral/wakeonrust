@@ -88,6 +88,7 @@ pub mod output {
     pub fn write_output(signals: &Signals, m_pc_map: &Mutex<HashMap<String, PCInfo>>) {
         while signals.running() {
             let is_manager = signals.is_manager();
+            #[cfg(not(debug_assertions))]
             clearscreen::clear().unwrap();
             println!("{}", make_table(m_pc_map, is_manager));
 
