@@ -6,7 +6,11 @@ pub mod input {
         let (tx, rx) = channel();
         std::thread::spawn(move || loop {
             let mut input = String::new();
-            std::io::stdin().read_line(&mut input).unwrap();
+            let bytes = std::io::stdin().read_line(&mut input).unwrap();
+            // If the user presses Ctrl-D, the program will exit
+            if bytes == 0 {
+                input = "exit".to_string();  
+            }
             match tx.send(input.trim().to_lowercase()) {
                 Ok(_) => {}
                 Err(_) => break,
