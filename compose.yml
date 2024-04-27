@@ -23,6 +23,12 @@ services:
     hostname: wakemgr
     container_name: wakemgr
 
+  client1:
+    extends:
+      service: client
+    hostname: wakecli1
+    container_name: wakecli1
+
 
 networks:
   default:
