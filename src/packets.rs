@@ -3,7 +3,7 @@ use mac_address::MacAddress;
 pub const BUFFER_SIZE: usize = 4096;
 pub const HEADER_SIZE: usize = 10;
 
-type PacketType = u8;
+pub type PacketType = u8;
 
 pub const SSR_PACKET: PacketType = 0x01;
 pub const SSR_ACK_PACKET: PacketType = 0x02;

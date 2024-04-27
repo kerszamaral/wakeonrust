@@ -2,8 +2,7 @@ use self::find::find_manager;
 use self::listen::listen_for_clients;
 use crate::addrs::{DISCOVERY_ADDR, DISCOVERY_BROADCAST_ADDR};
 use crate::packets::{
-    check_packet, make_header, swap_packet_type, BUFFER_SIZE, HEADER_SIZE, SSD_ACK_PACKET,
-    SSD_PACKET,
+    check_packet, make_header, swap_packet_type, PacketType, BUFFER_SIZE, HEADER_SIZE, SSD_ACK_PACKET, SSD_PACKET
 };
 use crate::pcinfo::{PCInfo, PCStatus};
 use crate::{
@@ -14,9 +13,9 @@ use mac_address::MacAddress;
 use std::net::UdpSocket;
 use std::sync::{atomic::Ordering, mpsc::Sender};
 
-fn from_buffer(buf: &[u8], amt: usize) -> Option<(String, MacAddress)> {
+fn from_buffer(buf: &[u8], amt: usize, packet_type: PacketType) -> Option<(String, MacAddress)> {
     let msg = &buf[..amt];
-    if !check_packet(&msg.to_vec(), SSD_PACKET) {
+    if !check_packet(&msg.to_vec(), packet_type) {
         return None;
     }
     let msg = &buf[HEADER_SIZE..amt];
@@ -37,7 +36,7 @@ mod find {
         let mut buf = [0; BUFFER_SIZE];
         match socket.recv_from(&mut buf) {
             Ok((amt, src)) => {
-                let (hostname, mac) = match from_buffer(&buf, amt) {
+                let (hostname, mac) = match from_buffer(&buf, amt, SSD_ACK_PACKET) {
                     Some((hostname, mac)) => (hostname, mac),
                     None => return false,
                 };
@@ -60,7 +59,7 @@ mod listen {
         let mut buf = [0; BUFFER_SIZE];
         match socket.recv_from(&mut buf) {
             Ok((amt, src)) => {
-                let (hostname, mac) = match from_buffer(&buf, amt) {
+                let (hostname, mac) = match from_buffer(&buf, amt, SSD_PACKET) {
                     Some((hostname, mac)) => (hostname, mac),
                     None => return,
                 };
