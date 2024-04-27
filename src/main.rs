@@ -23,6 +23,11 @@ fn main() {
     };
 
     let signals = Arc::new(signals::Signals::new(start_as_manager));
+
+    let sig = signals.clone();
+    ctrlc::set_handler(move || {
+        sig.exit();
+    }).unwrap();
     
     let am_pc_map = Arc::new(Mutex::new(HashMap::new()));
     let (wakeup_tx, wakeup_rx) = channel::<String>();

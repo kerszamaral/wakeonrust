@@ -1,6 +1,5 @@
 use std::sync::atomic::AtomicBool;
 
-
 #[derive(Debug)]
 pub struct Signals {
     pub run: AtomicBool,
@@ -17,5 +16,11 @@ impl Signals {
             is_manager: AtomicBool::new(start_as_manager),
             manager_found: AtomicBool::new(false),
         }
+    }
+
+    pub fn exit(&self) {
+        self.run.store(false, std::sync::atomic::Ordering::Relaxed);
+        self.update
+            .store(true, std::sync::atomic::Ordering::Relaxed);
     }
 }

@@ -1,22 +1,33 @@
 pub mod input {
     use crate::{delays::INPUT_DELAY, signals::Signals};
-    use std::sync::mpsc::Sender;
+    use std::sync::mpsc::{channel, Receiver, Sender};
 
-    pub fn read_input(signals: &Signals, wakeups: Sender<String>) {
-        while signals.run.load(std::sync::atomic::Ordering::Relaxed) {
+    fn async_stdin() -> Receiver<String> {
+        let (tx, rx) = channel();
+        std::thread::spawn(move || loop {
             let mut input = String::new();
             std::io::stdin().read_line(&mut input).unwrap();
-            let input = input.trim().to_lowercase();
+            match tx.send(input.trim().to_lowercase()) {
+                Ok(_) => {}
+                Err(_) => break,
+            }
+        });
+        rx
+    }
+
+    pub fn read_input(signals: &Signals, wakeups: Sender<String>) {
+        let stdin = async_stdin();
+        while signals.run.load(std::sync::atomic::Ordering::Relaxed) {
+            std::thread::sleep(INPUT_DELAY);
+            let input = match stdin.try_recv() {
+                Ok(input) => input,
+                Err(_) => continue,
+            };
             let args = input.split_whitespace().collect::<Vec<&str>>();
 
             match args.as_slice() {
                 ["exit"] => {
-                    signals
-                        .run
-                        .store(false, std::sync::atomic::Ordering::Relaxed);
-                    signals
-                        .update
-                        .store(true, std::sync::atomic::Ordering::Relaxed);
+                    signals.exit();
                 }
                 ["wakeup", hostname] => {
                     if signals
@@ -33,7 +44,6 @@ pub mod input {
                     println!("Invalid input.");
                 }
             }
-            std::thread::sleep(INPUT_DELAY);
         }
     }
 }
