@@ -1,5 +1,5 @@
 pub mod input {
-    use crate::signals::Signals;
+    use crate::{delays::INPUT_DELAY, signals::Signals};
     use std::sync::mpsc::Sender;
     pub fn read_input(signals: &Signals, wakeups: &Sender<String>) {
         while signals.run.load(std::sync::atomic::Ordering::Relaxed) {
@@ -32,6 +32,7 @@ pub mod input {
                     println!("Invalid input.");
                 }
             }
+            std::thread::sleep(INPUT_DELAY);
         }
     }
 }
