@@ -1,7 +1,7 @@
 use crate::delays::CHECK_DELAY;
 use crate::packets::{check_packet, make_header, BUFFER_SIZE, SSR_ACK_PACKET, SSR_PACKET};
 use crate::pcinfo::{PCInfo, PCStatus};
-use crate::ports::MONITOR_PORT;
+use crate::addrs::{MONITOR_ADDR, MONITOR_PORT};
 use crate::signals::Signals;
 use std::collections::HashMap;
 use std::net::{IpAddr, SocketAddr, UdpSocket};
@@ -58,8 +58,7 @@ pub fn initialize(
     pc_map: &Mutex<HashMap<String, PCInfo>>,
     sleep_status: &Sender<(String, PCStatus)>,
 ) {
-    let addr = SocketAddr::from(([127, 0, 0, 1], MONITOR_PORT));
-    let socket = UdpSocket::bind(addr).expect("Failed to bind monitor socket");
+    let socket = UdpSocket::bind(MONITOR_ADDR).expect("Failed to bind monitor socket");
     socket
         .set_nonblocking(true)
         .expect("Failed to set monitor socket to non-blocking");

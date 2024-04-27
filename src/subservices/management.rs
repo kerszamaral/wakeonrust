@@ -1,27 +1,26 @@
 use crate::delays::{CHECK_DELAY, WAIT_DELAY};
 use crate::packets::{check_packet, make_header, BUFFER_SIZE, HEADER_SIZE, SSE_PACKET};
 use crate::pcinfo::{PCInfo, PCStatus};
-use crate::ports::{EXIT_PORT, WAKEUP_PORT};
 use crate::signals::Signals;
 use std::collections::HashMap;
-use std::net::{SocketAddr, UdpSocket};
+use std::net::UdpSocket;
 use std::sync::{atomic::Ordering, mpsc::Receiver, Mutex};
 
 pub mod exit {
+    use crate::addrs::EXIT_ADDR;
+
     use super::*;
 
     pub fn sender(signals: &Signals) {
         signals.run.store(false, Ordering::Relaxed);
-        let exit_addr = SocketAddr::from(([255, 255, 255, 255], EXIT_PORT));
-        let socket = UdpSocket::bind(exit_addr).unwrap();
+        let socket = UdpSocket::bind(EXIT_ADDR).unwrap();
         socket.set_broadcast(true).unwrap();
         let exit_packet = make_header(SSE_PACKET, 0);
-        socket.send_to(&exit_packet, exit_addr).unwrap();
+        socket.send_to(&exit_packet, EXIT_ADDR).unwrap();
     }
 
     pub fn receiver(signals: &Signals, m_pc_map: &Mutex<HashMap<String, PCInfo>>) {
-        let exit_addr = SocketAddr::from(([0, 0, 0, 0], EXIT_PORT));
-        let socket = UdpSocket::bind(exit_addr).unwrap();
+        let socket = UdpSocket::bind(EXIT_ADDR).unwrap();
         socket.set_nonblocking(true).unwrap();
         socket.set_read_timeout(Some(CHECK_DELAY)).unwrap();
 
@@ -49,7 +48,7 @@ pub mod exit {
 }
 
 pub mod wakeup {
-    use crate::packets::make_wakeup_packet;
+    use crate::{packets::make_wakeup_packet, addrs::{WAKEUP_ADDR, WAKEUP_SEND_ADDR}};
 
     use super::*;
 
@@ -58,8 +57,7 @@ pub mod wakeup {
         wake_rx: &Receiver<String>,
         m_pc_map: &Mutex<HashMap<String, PCInfo>>,
     ) {
-        let addr = SocketAddr::from(([0, 0, 0, 0], WAKEUP_PORT));
-        let socket = UdpSocket::bind(addr).unwrap();
+        let socket = UdpSocket::bind(WAKEUP_SEND_ADDR).unwrap();
         socket.set_broadcast(true).unwrap();
 
         while signals.run.load(Ordering::Relaxed) {
@@ -69,7 +67,7 @@ pub mod wakeup {
                 if let Some(pc_info) = pc_map.get(&hostname) {
                     if *pc_info.get_status() == PCStatus::Offline {
                         let wakeup_packet = make_wakeup_packet(pc_info.get_mac());
-                        socket.send_to(&wakeup_packet, addr).unwrap();
+                        socket.send_to(&wakeup_packet, WAKEUP_ADDR).unwrap();
                     } else {
                         println!("{} is not sleeping", hostname);
                     }

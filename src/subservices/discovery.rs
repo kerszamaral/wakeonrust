@@ -5,13 +5,13 @@ use crate::packets::{
     SSD_PACKET,
 };
 use crate::pcinfo::{PCInfo, PCStatus};
+use crate::addrs::{DISCOVERY_ADDR, DISCOVERY_BROADCAST_ADDR};
 use crate::{
     delays::{CHECK_DELAY, WAIT_DELAY},
-    ports::DISCOVERY_PORT,
     signals::Signals,
 };
 use mac_address::MacAddress;
-use std::net::{SocketAddr, UdpSocket};
+use std::net::UdpSocket;
 use std::sync::{atomic::Ordering, mpsc::Sender};
 
 fn from_buffer(buf: &[u8], amt: usize) -> Option<(String, MacAddress)> {
@@ -76,9 +76,7 @@ mod listen {
 
 pub fn initialize(signals: &Signals, new_pc_tx: &Sender<PCInfo>) {
     // Setup the socket
-    let addr = SocketAddr::from(([127, 0, 0, 1], DISCOVERY_PORT));
-    let broadcast_addr = SocketAddr::from(([255, 255, 255, 255], DISCOVERY_PORT));
-    let socket = UdpSocket::bind(addr).expect("Failed to bind monitor socket");
+    let socket = UdpSocket::bind(DISCOVERY_ADDR).expect("Failed to bind monitor socket");
     socket
         .set_nonblocking(true)
         .expect("Failed to set discovery socket to non-blocking mode");
@@ -112,7 +110,7 @@ pub fn initialize(signals: &Signals, new_pc_tx: &Sender<PCInfo>) {
                 signals.manager_found.store(true, Ordering::Relaxed);
             } else {
                 socket.set_broadcast(true).unwrap();
-                socket.send_to(&ssr, broadcast_addr).unwrap();
+                socket.send_to(&ssr, DISCOVERY_BROADCAST_ADDR).unwrap();
                 socket.set_broadcast(false).unwrap();
             }
 

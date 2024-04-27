@@ -1,7 +1,7 @@
 mod delays;
 mod packets;
 mod pcinfo;
-mod ports;
+mod addrs;
 mod signals;
 mod subservices;
 use crate::subservices::discovery;
