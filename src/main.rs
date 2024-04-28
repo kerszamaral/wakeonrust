@@ -32,6 +32,7 @@ fn main() {
     let am_pc_map = Arc::new(Mutex::new(HashMap::new()));
     let (wakeup_tx, wakeup_rx) = channel::<String>();
     let (new_pc_tx, new_pc_rx) = channel::<PCInfo>();
+    let (remove_pc_tx, remove_pc_rx) = channel::<String>();
     let (sleep_status_tx, sleep_status_rx) = channel::<(String, pcinfo::PCStatus)>();
 
     let mut thrds = Vec::<std::thread::JoinHandle<()>>::new();
@@ -64,9 +65,8 @@ fn main() {
     }));
 
     let sigs = signals.clone();
-    let ampc = am_pc_map.clone();
     thrds.push(thread::spawn(move || {
-        management::exit::receiver(&sigs, &ampc);
+        management::exit::receiver(&sigs, remove_pc_tx);
     }));
 
     let sigs = signals.clone();
@@ -85,6 +85,12 @@ fn main() {
     let ampc = am_pc_map.clone();
     thrds.push(thread::spawn(move || {
         management::update::update_statuses(&sigs, &ampc, sleep_status_rx);
+    }));
+
+    let sigs = signals.clone();
+    let ampc = am_pc_map.clone();
+    thrds.push(thread::spawn(move || {
+        management::update::remove_pcs(&sigs, &ampc, remove_pc_rx);
     }));
 
     for thrd in thrds.into_iter() {
