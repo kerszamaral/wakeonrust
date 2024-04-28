@@ -1,5 +1,5 @@
 use crate::delays::{CHECK_DELAY, WAIT_DELAY};
-use crate::packets::{check_packet, make_header, BUFFER_SIZE, SSR_ACK_PACKET, SSR_PACKET};
+use crate::packets::{check_packet, make_header, BUFFER_SIZE, PacketType::{SsrPacket, SsrAckPacket}};
 use crate::pcinfo::{PCInfo, PCStatus};
 use crate::signals::Signals;
 use std::collections::HashMap;
@@ -15,7 +15,7 @@ pub mod status {
             let mut buf = [0; BUFFER_SIZE];
             match socket.recv_from(&mut buf) {
                 Ok((amt, _src)) => {
-                    if check_packet(&buf[..amt], SSR_ACK_PACKET).is_err() {
+                    if check_packet(&buf[..amt], SsrAckPacket).is_err() {
                         continue; // Ignore invalid packets
                     }
                     return PCStatus::Online;
@@ -34,7 +34,7 @@ pub mod status {
         pcs: Vec<(&String, &IpAddr, &PCStatus)>,
         sleep_status: &Sender<(String, PCStatus)>,
     ) {
-        let ssr = make_header(SSR_PACKET, 0);
+        let ssr = make_header(SsrPacket, 0);
         for (hostname, ip, status) in pcs {
             if !signals.running() {
                 break;
@@ -77,10 +77,10 @@ pub mod status {
                 let mut buf = [0; BUFFER_SIZE];
                 match socket.recv_from(&mut buf) {
                     Ok((amt, src)) => {
-                        if check_packet(&buf[..amt], SSR_PACKET).is_err() {
+                        if check_packet(&buf[..amt], SsrPacket).is_err() {
                             continue;
                         }
-                        let ssra = make_header(SSR_ACK_PACKET, 0);
+                        let ssra = make_header(SsrAckPacket, 0);
                         socket.send_to(&ssra, src).unwrap();
                         manager_timeout = MAX_TIMEOUT;
                     }
@@ -103,7 +103,7 @@ pub mod status {
 pub mod exit {
     use crate::{
         addrs::{EXIT_ADDR, EXIT_BROADCAST_ADDR},
-        packets::{HEADER_SIZE, SSE_PACKET},
+        packets::{HEADER_SIZE, PacketType::SsePacket},
     };
 
     use super::*;
@@ -116,7 +116,7 @@ pub mod exit {
             let mut buf = [0; BUFFER_SIZE];
             match socket.recv_from(&mut buf) {
                 Ok((amt, _src)) => {
-                    if check_packet(&buf[..amt], SSE_PACKET).is_err() {
+                    if check_packet(&buf[..amt], SsePacket).is_err() {
                         continue; // Ignore invalid packets
                     }
 
@@ -132,7 +132,7 @@ pub mod exit {
         }
         // Send the exit signal to other pcs
         socket.set_broadcast(true).unwrap();
-        let exit_packet = make_header(SSE_PACKET, 0);
+        let exit_packet = make_header(SsePacket, 0);
         socket.send_to(&exit_packet, EXIT_BROADCAST_ADDR).unwrap();
     }
 }

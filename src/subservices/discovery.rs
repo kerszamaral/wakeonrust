@@ -1,7 +1,7 @@
 use crate::addrs::{DISCOVERY_ADDR, DISCOVERY_BROADCAST_ADDR};
 use crate::packets::{
     check_packet, make_header, swap_packet_type, PacketType, BUFFER_SIZE, HEADER_SIZE,
-    SSD_ACK_PACKET, SSD_PACKET,
+    PacketType::{SsdPacket, SsdAckPacket},
 };
 use crate::pcinfo::{PCInfo, PCStatus};
 use crate::{
@@ -32,7 +32,7 @@ pub fn find_manager(socket: &UdpSocket, new_pc_tx: &Sender<PCInfo>) -> bool {
     let mut buf = [0; BUFFER_SIZE];
     match socket.recv_from(&mut buf) {
         Ok((amt, src)) => {
-            let (hostname, mac) = match from_buffer(&buf, amt, SSD_ACK_PACKET) {
+            let (hostname, mac) = match from_buffer(&buf, amt, SsdAckPacket) {
                 Some((hostname, mac)) => (hostname, mac),
                 None => return false,
             };
@@ -51,7 +51,7 @@ pub fn listen_for_clients(socket: &UdpSocket, new_pc_tx: &Sender<PCInfo>, ssra: 
     let mut buf = [0; BUFFER_SIZE];
     match socket.recv_from(&mut buf) {
         Ok((amt, src)) => {
-            let (hostname, mac) = match from_buffer(&buf, amt, SSD_PACKET) {
+            let (hostname, mac) = match from_buffer(&buf, amt, SsdPacket) {
                 Some((hostname, mac)) => (hostname, mac),
                 None => return,
             };
@@ -83,12 +83,12 @@ pub fn discover(signals: &Signals, new_pc_tx: Sender<PCInfo>) {
 
     // Make the SSR packet and its ACK
     let ssr = [
-        make_header(SSD_PACKET, length).to_vec(),
+        make_header(SsdPacket, length).to_vec(),
         our_mac.bytes().to_vec(),
         our_name.as_bytes().to_vec(),
     ]
     .concat();
-    let ssra = swap_packet_type(&ssr, SSD_ACK_PACKET);
+    let ssra = swap_packet_type(&ssr, SsdAckPacket);
 
     while signals.running() {
         if signals.is_manager() {

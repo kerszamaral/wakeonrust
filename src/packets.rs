@@ -3,14 +3,37 @@ use mac_address::MacAddress;
 pub const BUFFER_SIZE: usize = 1024;
 pub const HEADER_SIZE: usize = 5;
 
-pub type PacketType = u8;
+#[derive(Debug, PartialEq, Eq)]
+#[repr(u8)]
+pub enum PacketType {
+    SsrPacket = 0x01,
+    SsrAckPacket = 0x02,
+    SsePacket = 0x04,
+    SsdPacket = 0x05,
+    SsdAckPacket = 0x06,
+    SsrepPacket = 0x07,
+    SselPacket = 0x08,
+    SselFinPacket = 0x09,
+    SselGtPacket = 0x0A,
+}
 
-pub const SSR_PACKET: PacketType = 0x01;
-pub const SSR_ACK_PACKET: PacketType = 0x02;
-pub const SSE_PACKET: PacketType = 0x04;
-pub const SSD_PACKET: PacketType = 0x05;
-pub const SSD_ACK_PACKET: PacketType = 0x06;
-pub const SSREP_PACKET: PacketType = 0x07;
+impl std::convert::TryFrom<u8> for PacketType {
+    type Error = ();
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0x01 => Ok(PacketType::SsrPacket),
+            0x02 => Ok(PacketType::SsrAckPacket),
+            0x04 => Ok(PacketType::SsePacket),
+            0x05 => Ok(PacketType::SsdPacket),
+            0x06 => Ok(PacketType::SsdAckPacket),
+            0x07 => Ok(PacketType::SsrepPacket),
+            0x08 => Ok(PacketType::SselPacket),
+            0x09 => Ok(PacketType::SselFinPacket),
+            0x0A => Ok(PacketType::SselGtPacket),
+            _ => Err(()),
+        }
+    }
+}
 
 const MAGIC_NUMBER: u16 = 0xCA31;
 const MAGIC_NUMBER_INDEX: usize = 0;
@@ -34,13 +57,18 @@ pub fn swap_packet_type(packet: &Vec<u8>, packet_type: PacketType) -> Vec<u8> {
     new_packet
 }
 
-pub fn check_packet(packet: &[u8], expected_packet_type: PacketType) -> Result<usize, ()> {
+pub fn get_packet_type(packet: &[u8]) -> Result<PacketType, ()> {
     let magic_number =
         (packet[MAGIC_NUMBER_INDEX] as u16) << 8 | packet[MAGIC_NUMBER_INDEX + 1] as u16;
     if magic_number != MAGIC_NUMBER {
-        return Err(());
+        Err(())
+    } else {
+        PacketType::try_from(packet[PACKET_TYPE_INDEX])
     }
-    let packet_type = packet[PACKET_TYPE_INDEX];
+}
+
+pub fn check_packet(packet: &[u8], expected_packet_type: PacketType) -> Result<usize, ()> {
+    let packet_type = get_packet_type(packet)?;
     if packet_type != expected_packet_type {
         return Err(());
     }
@@ -53,6 +81,12 @@ pub fn make_wakeup_packet(mac: &MacAddress) -> Vec<u8> {
     const WOL_HEADER: [u8; FF_NUM] = [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF];
     const MAC_NUM: usize = 16;
     const MAC_SIZE: usize = 6;
-    let wol_payload: Vec<u8> = mac.bytes().iter().cycle().take(MAC_NUM*MAC_SIZE).cloned().collect();
+    let wol_payload: Vec<u8> = mac
+        .bytes()
+        .iter()
+        .cycle()
+        .take(MAC_NUM * MAC_SIZE)
+        .cloned()
+        .collect();
     [WOL_HEADER.to_vec(), wol_payload].concat()
 }
