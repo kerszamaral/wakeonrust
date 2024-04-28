@@ -65,8 +65,6 @@ pub fn initialize(
 
     while signals.running() {
         if signals.is_manager() {
-            std::thread::sleep(CHECK_DELAY);
-
             let pc_map = m_pc_map.lock().unwrap();
             let pcs = pc_map
                 .iter()
@@ -87,6 +85,6 @@ pub fn initialize(
                 Err(_) => {}
             }
         }
-        std::thread::sleep(WAIT_DELAY);
+        std::thread::sleep(CHECK_DELAY);
     }
 }
