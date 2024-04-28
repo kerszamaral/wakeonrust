@@ -15,7 +15,7 @@ mod listen {
             let mut buf = [0; BUFFER_SIZE];
             match socket.recv_from(&mut buf) {
                 Ok((amt, _src)) => {
-                    if !check_packet(&buf[..amt], SSR_ACK_PACKET) {
+                    if check_packet(&buf[..amt], SSR_ACK_PACKET).is_err() {
                         continue; // Ignore invalid packets
                     }
                     return PCStatus::Online;
@@ -78,7 +78,7 @@ pub fn initialize(
             let mut buf = [0; BUFFER_SIZE];
             match socket.recv_from(&mut buf) {
                 Ok((amt, src)) => {
-                    if !check_packet(&buf[..amt], SSR_PACKET) {
+                    if check_packet(&buf[..amt], SSR_PACKET).is_err() {
                         continue;
                     }
                     let ssra = make_header(SSR_ACK_PACKET, 0);

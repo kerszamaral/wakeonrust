@@ -29,7 +29,7 @@ pub mod exit {
             let mut buf = [0; BUFFER_SIZE];
             match socket.recv_from(&mut buf) {
                 Ok((amt, _src)) => {
-                    if !check_packet(&buf[..amt], SSE_PACKET) {
+                    if check_packet(&buf[..amt], SSE_PACKET).is_err() {
                         continue; // Ignore invalid packets
                     }
 
