@@ -1,8 +1,7 @@
-use self::find::find_manager;
-use self::listen::listen_for_clients;
 use crate::addrs::{DISCOVERY_ADDR, DISCOVERY_BROADCAST_ADDR};
 use crate::packets::{
-    check_packet, make_header, swap_packet_type, PacketType, BUFFER_SIZE, HEADER_SIZE, SSD_ACK_PACKET, SSD_PACKET
+    check_packet, make_header, swap_packet_type, PacketType, BUFFER_SIZE, HEADER_SIZE,
+    SSD_ACK_PACKET, SSD_PACKET,
 };
 use crate::pcinfo::{PCInfo, PCStatus};
 use crate::{
@@ -29,51 +28,43 @@ fn from_buffer(buf: &[u8], amt: usize, packet_type: PacketType) -> Option<(Strin
     return Some((hostname, mac));
 }
 
-mod find {
-    use super::*;
+pub fn find_manager(socket: &UdpSocket, new_pc_tx: &Sender<PCInfo>) -> bool {
+    let mut buf = [0; BUFFER_SIZE];
+    match socket.recv_from(&mut buf) {
+        Ok((amt, src)) => {
+            let (hostname, mac) = match from_buffer(&buf, amt, SSD_ACK_PACKET) {
+                Some((hostname, mac)) => (hostname, mac),
+                None => return false,
+            };
 
-    pub fn find_manager(socket: &UdpSocket, new_pc_tx: &Sender<PCInfo>) -> bool {
-        let mut buf = [0; BUFFER_SIZE];
-        match socket.recv_from(&mut buf) {
-            Ok((amt, src)) => {
-                let (hostname, mac) = match from_buffer(&buf, amt, SSD_ACK_PACKET) {
-                    Some((hostname, mac)) => (hostname, mac),
-                    None => return false,
-                };
-
-                let new_manager = PCInfo::new(hostname, mac, src.ip(), PCStatus::Online, true);
-                new_pc_tx.send(new_manager).unwrap();
-                return true;
-            }
-            Err(_) => {
-                return false;
-            }
+            let new_manager = PCInfo::new(hostname, mac, src.ip(), PCStatus::Online, true);
+            new_pc_tx.send(new_manager).unwrap();
+            return true;
+        }
+        Err(_) => {
+            return false;
         }
     }
 }
 
-mod listen {
-    use super::*;
+pub fn listen_for_clients(socket: &UdpSocket, new_pc_tx: &Sender<PCInfo>, ssra: &Vec<u8>) {
+    let mut buf = [0; BUFFER_SIZE];
+    match socket.recv_from(&mut buf) {
+        Ok((amt, src)) => {
+            let (hostname, mac) = match from_buffer(&buf, amt, SSD_PACKET) {
+                Some((hostname, mac)) => (hostname, mac),
+                None => return,
+            };
 
-    pub fn listen_for_clients(socket: &UdpSocket, new_pc_tx: &Sender<PCInfo>, ssra: &Vec<u8>) {
-        let mut buf = [0; BUFFER_SIZE];
-        match socket.recv_from(&mut buf) {
-            Ok((amt, src)) => {
-                let (hostname, mac) = match from_buffer(&buf, amt, SSD_PACKET) {
-                    Some((hostname, mac)) => (hostname, mac),
-                    None => return,
-                };
-
-                let new_client = PCInfo::new(hostname, mac, src.ip(), PCStatus::Online, false);
-                new_pc_tx.send(new_client).unwrap();
-                socket.send_to(&ssra, src).unwrap();
-            }
-            Err(_) => {}
+            let new_client = PCInfo::new(hostname, mac, src.ip(), PCStatus::Online, false);
+            new_pc_tx.send(new_client).unwrap();
+            socket.send_to(&ssra, src).unwrap();
         }
+        Err(_) => {}
     }
 }
 
-pub fn initialize(signals: &Signals, new_pc_tx: Sender<PCInfo>) {
+pub fn discover(signals: &Signals, new_pc_tx: Sender<PCInfo>) {
     // Setup the socket
     let socket = UdpSocket::bind(DISCOVERY_ADDR).expect("Failed to bind monitor socket");
     socket
@@ -113,8 +104,7 @@ pub fn initialize(signals: &Signals, new_pc_tx: Sender<PCInfo>) {
                 socket.set_broadcast(false).unwrap();
             }
 
-            while signals.running() && signals.manager_found()
-            {
+            while signals.running() && signals.manager_found() {
                 std::thread::sleep(CHECK_DELAY);
             }
         }

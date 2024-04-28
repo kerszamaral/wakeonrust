@@ -19,7 +19,7 @@ pub mod input {
         rx
     }
 
-    pub fn read_input(signals: &Signals, wakeups: Sender<String>) {
+    pub fn start(signals: &Signals, wakeups: Sender<String>) {
         let stdin = async_stdin();
         while signals.running() {
             let input = match stdin.try_recv() {
@@ -91,7 +91,7 @@ pub mod output {
         table
     }
 
-    pub fn write_output(signals: &Signals, m_pc_map: &Mutex<HashMap<String, PCInfo>>) {
+    pub fn start(signals: &Signals, m_pc_map: &Mutex<HashMap<String, PCInfo>>) {
         while signals.running() {
             let is_manager = signals.is_manager();
             #[cfg(not(debug_assertions))]
