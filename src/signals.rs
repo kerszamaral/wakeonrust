@@ -30,6 +30,11 @@ impl Signals {
         self.is_manager.load(std::sync::atomic::Ordering::Relaxed)
     }
 
+    pub fn i_am_manager(&self) {
+        self.is_manager
+            .store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+
     pub fn has_update(&self) -> bool {
         self.update
             .compare_exchange(
