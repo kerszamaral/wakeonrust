@@ -55,4 +55,9 @@ impl Signals {
         self.manager_found
             .store(true, std::sync::atomic::Ordering::Relaxed);
     }
+
+    pub fn manager_timed_out(&self) {
+        self.manager_found
+            .store(false, std::sync::atomic::Ordering::Relaxed);
+    }
 }
