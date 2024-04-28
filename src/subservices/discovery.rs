@@ -15,7 +15,7 @@ use std::sync::mpsc::Sender;
 
 fn from_buffer(buf: &[u8], amt: usize, packet_type: PacketType) -> Option<(String, MacAddress)> {
     let msg = &buf[..amt];
-    if !check_packet(&msg.to_vec(), packet_type) {
+    if check_packet(&msg.to_vec(), packet_type).is_err() {
         return None;
     }
     let msg = &buf[HEADER_SIZE..amt];

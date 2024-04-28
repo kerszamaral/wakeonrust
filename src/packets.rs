@@ -1,7 +1,7 @@
 use mac_address::MacAddress;
 
 pub const BUFFER_SIZE: usize = 1024;
-pub const HEADER_SIZE: usize = 10;
+pub const HEADER_SIZE: usize = 5;
 
 pub type PacketType = u8;
 
@@ -12,39 +12,39 @@ pub const SSD_PACKET: PacketType = 0x05;
 pub const SSD_ACK_PACKET: PacketType = 0x06;
 
 const MAGIC_NUMBER: u16 = 0xCA31;
+const MAGIC_NUMBER_INDEX: usize = 0;
+const PACKET_TYPE_INDEX: usize = 2;
+const LENGTH_INDEX: usize = 3;
 
-pub fn make_header(packet_type: PacketType, length: usize) -> [u8;HEADER_SIZE] {
+pub fn make_header(packet_type: PacketType, length: usize) -> [u8; HEADER_SIZE] {
     let length = length as u16;
     [
         (MAGIC_NUMBER >> 8) as u8,
         MAGIC_NUMBER as u8,
-        0,
         packet_type as u8,
-        0,
-        0,
         (length >> 8) as u8,
         length as u8,
-        0,
-        0,
     ]
 }
 
 pub fn swap_packet_type(packet: &Vec<u8>, packet_type: PacketType) -> Vec<u8> {
     let mut new_packet = packet.clone();
-    new_packet[3] = packet_type as u8;
+    new_packet[PACKET_TYPE_INDEX] = packet_type as u8;
     new_packet
 }
 
-pub fn check_packet(packet: &[u8], expected_packet_type: PacketType) -> bool {
-    let magic_number = (packet[0] as u16) << 8 | packet[1] as u16;
+pub fn check_packet(packet: &[u8], expected_packet_type: PacketType) -> Result<usize, ()> {
+    let magic_number =
+        (packet[MAGIC_NUMBER_INDEX] as u16) << 8 | packet[MAGIC_NUMBER_INDEX + 1] as u16;
     if magic_number != MAGIC_NUMBER {
-        return false;
+        return Err(());
     }
-    let packet_type = packet[3];
+    let packet_type = packet[PACKET_TYPE_INDEX];
     if packet_type != expected_packet_type {
-        return false;
+        return Err(());
     }
-    true
+    let length = (packet[LENGTH_INDEX] as usize) << 8 | packet[LENGTH_INDEX + 1] as usize;
+    Ok(length)
 }
 
 pub fn make_wakeup_packet(mac: &MacAddress) -> Vec<u8> {
