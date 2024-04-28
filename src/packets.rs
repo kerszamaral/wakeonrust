@@ -10,6 +10,7 @@ pub const SSR_ACK_PACKET: PacketType = 0x02;
 pub const SSE_PACKET: PacketType = 0x04;
 pub const SSD_PACKET: PacketType = 0x05;
 pub const SSD_ACK_PACKET: PacketType = 0x06;
+pub const SSREP_PACKET: PacketType = 0x07;
 
 const MAGIC_NUMBER: u16 = 0xCA31;
 const MAGIC_NUMBER_INDEX: usize = 0;
