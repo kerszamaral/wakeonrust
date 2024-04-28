@@ -1,3 +1,4 @@
+#![allow(dead_code, unused_imports, unused_variables)]
 mod addrs;
 mod delays;
 mod packets;
@@ -100,11 +101,11 @@ fn main() {
         management::remove_pcs(&sigs, &ampc, remove_pc_rx, rb_update_tx);
     }));
 
-    let sigs = signals.clone();
-    let ampc = am_pc_map.clone();
-    thrds.push(thread::spawn(move || {
-        replication::initialize(&sigs, &ampc, update_rx);
-    }));
+    // let sigs = signals.clone();
+    // let ampc = am_pc_map.clone();
+    // thrds.push(thread::spawn(move || {
+    //     replication::initialize(&sigs, &ampc, update_rx);
+    // }));
 
     let sigs = signals.clone();
     thrds.push(thread::spawn(move || {
