@@ -22,10 +22,12 @@ pub mod input {
     pub fn read_input(signals: &Signals, wakeups: Sender<String>) {
         let stdin = async_stdin();
         while signals.running() {
-            std::thread::sleep(INPUT_DELAY);
             let input = match stdin.try_recv() {
                 Ok(input) => input,
-                Err(_) => continue,
+                Err(_) => {
+                    std::thread::sleep(INPUT_DELAY);
+                    continue;
+                },
             };
             let args = input.split_whitespace().collect::<Vec<&str>>();
 
