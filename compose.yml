@@ -20,7 +20,11 @@ services:
   manager:
     extends:
       service: client
-    command: ["cargo", "run", "manager"]
+    command: [
+      "cargo",
+      "run", 
+      # "manager"
+    ]
     deploy:
       mode: replicated
       replicas: 1
