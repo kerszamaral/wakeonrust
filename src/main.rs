@@ -24,6 +24,13 @@ fn main() {
 
     let signals = Arc::new(signals::Signals::new(start_as_manager));
 
+    let sigs = signals.clone();
+    let old_panic = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |panic_info| {
+        old_panic(panic_info);
+        sigs.exit();
+    }));
+
     let sig = signals.clone();
     ctrlc::set_handler(move || {
         sig.exit();
