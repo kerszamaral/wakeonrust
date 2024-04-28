@@ -61,6 +61,8 @@ pub mod status {
         socket
             .set_read_timeout(Some(WAIT_DELAY))
             .expect("Failed to set monitor socket read timeout");
+        const MAX_TIMEOUT: u32 = 5;
+        let mut manager_timeout = MAX_TIMEOUT;
 
         while signals.running() {
             if signals.is_manager() {
@@ -80,8 +82,17 @@ pub mod status {
                         }
                         let ssra = make_header(SSR_ACK_PACKET, 0);
                         socket.send_to(&ssra, src).unwrap();
+                        manager_timeout = MAX_TIMEOUT;
                     }
-                    Err(_) => {}
+                    Err(_) => {
+                        if signals.manager_found() {
+                            if manager_timeout == 0 {
+                                signals.manager_timed_out();
+                            } else {
+                                manager_timeout -= 1;
+                            }
+                        }
+                    }
                 }
             }
             std::thread::sleep(CHECK_DELAY);
