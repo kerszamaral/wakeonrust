@@ -1,7 +1,8 @@
 use crate::addrs::{DISCOVERY_ADDR, DISCOVERY_BROADCAST_ADDR};
 use crate::packets::{
-    check_packet, make_header, swap_packet_type, PacketType, BUFFER_SIZE, HEADER_SIZE,
-    PacketType::{SsdPacket, SsdAckPacket},
+    check_packet, make_header, swap_packet_type, PacketType,
+    PacketType::{SsdAckPacket, SsdPacket},
+    BUFFER_SIZE, HEADER_SIZE,
 };
 use crate::pcinfo::{PCInfo, PCStatus};
 use crate::{
@@ -73,6 +74,7 @@ pub fn discover(signals: &Signals, new_pc_tx: Sender<PCInfo>) {
     socket
         .set_read_timeout(Some(CHECK_DELAY))
         .expect("Failed to set discovery socket read timeout");
+    socket.set_broadcast(true).unwrap();
 
     // Setup the SSR packet
     let our_mac = mac_address::get_mac_address()
@@ -99,9 +101,7 @@ pub fn discover(signals: &Signals, new_pc_tx: Sender<PCInfo>) {
             if manager_found {
                 signals.found_manager();
             } else {
-                socket.set_broadcast(true).unwrap();
                 socket.send_to(&ssr, DISCOVERY_BROADCAST_ADDR).unwrap();
-                socket.set_broadcast(false).unwrap();
             }
 
             while signals.running() && signals.manager_found() {
