@@ -1,6 +1,6 @@
 use mac_address::MacAddress;
 
-pub const BUFFER_SIZE: usize = 4096;
+pub const BUFFER_SIZE: usize = 1024;
 pub const HEADER_SIZE: usize = 10;
 
 pub type PacketType = u8;
