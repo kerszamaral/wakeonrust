@@ -40,57 +40,52 @@ fn main() {
     let sigs = signals.clone();
     let ampc = am_pc_map.clone();
     thrds.push(thread::spawn(move || {
-        interface::output::write_output(&sigs, &ampc);
+        interface::output::start(&sigs, &ampc);
     }));
 
     let sigs = signals.clone();
     thrds.push(thread::spawn(move || {
-        interface::input::read_input(&sigs, wakeup_tx);
+        interface::input::start(&sigs, wakeup_tx);
     }));
 
     let sigs = signals.clone();
     thrds.push(thread::spawn(move || {
-        discovery::initialize(&sigs, new_pc_tx);
-    }));
-
-    let sigs = signals.clone();
-    let ampc = am_pc_map.clone();
-    thrds.push(thread::spawn(move || {
-        monitoring::initialize(&sigs, &ampc, sleep_status_tx);
-    }));
-
-    let sigs = signals.clone();
-    thrds.push(thread::spawn(move || {
-        management::exit::sender(&sigs);
-    }));
-
-    let sigs = signals.clone();
-    thrds.push(thread::spawn(move || {
-        management::exit::receiver(&sigs, remove_pc_tx);
+        discovery::discover(&sigs, new_pc_tx);
     }));
 
     let sigs = signals.clone();
     let ampc = am_pc_map.clone();
     thrds.push(thread::spawn(move || {
-        management::wakeup::sender(&sigs, &ampc, wakeup_rx);
+        monitoring::status::status_monitor(&sigs, &ampc, sleep_status_tx);
+    }));
+
+    let sigs = signals.clone();
+    thrds.push(thread::spawn(move || {
+        monitoring::exit::exit_monitor(&sigs, remove_pc_tx);
     }));
 
     let sigs = signals.clone();
     let ampc = am_pc_map.clone();
     thrds.push(thread::spawn(move || {
-        management::update::add_pcs(&sigs, &ampc, new_pc_rx);
+        management::wakeup(&sigs, &ampc, wakeup_rx);
     }));
 
     let sigs = signals.clone();
     let ampc = am_pc_map.clone();
     thrds.push(thread::spawn(move || {
-        management::update::update_statuses(&sigs, &ampc, sleep_status_rx);
+        management::add_pcs(&sigs, &ampc, new_pc_rx);
     }));
 
     let sigs = signals.clone();
     let ampc = am_pc_map.clone();
     thrds.push(thread::spawn(move || {
-        management::update::remove_pcs(&sigs, &ampc, remove_pc_rx);
+        management::update_statuses(&sigs, &ampc, sleep_status_rx);
+    }));
+
+    let sigs = signals.clone();
+    let ampc = am_pc_map.clone();
+    thrds.push(thread::spawn(move || {
+        management::remove_pcs(&sigs, &ampc, remove_pc_rx);
     }));
 
     for thrd in thrds.into_iter() {

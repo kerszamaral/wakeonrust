@@ -20,8 +20,6 @@ impl Signals {
 
     pub fn exit(&self) {
         self.run.store(false, std::sync::atomic::Ordering::Relaxed);
-        self.update
-            .store(true, std::sync::atomic::Ordering::Relaxed);
     }
 
     pub fn running(&self) -> bool {
