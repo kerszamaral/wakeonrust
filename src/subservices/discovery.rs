@@ -49,7 +49,12 @@ pub fn find_manager(socket: &UdpSocket, new_pc_tx: &Sender<PCInfo>) -> bool {
     }
 }
 
-pub fn listen_for_clients(socket: &UdpSocket, new_pc_tx: &Sender<PCInfo>, ssra: &Vec<u8>, our_hosname: &String) {
+pub fn listen_for_clients(
+    socket: &UdpSocket,
+    new_pc_tx: &Sender<PCInfo>,
+    ssra: &Vec<u8>,
+    our_hosname: &String,
+) {
     let mut buf = [0; BUFFER_SIZE];
     match socket.recv_from(&mut buf) {
         Ok((amt, src)) => {
@@ -98,8 +103,20 @@ pub fn discover(signals: &Signals, new_pc_tx: Sender<PCInfo>) {
     .concat();
     let ssra = swap_packet_type(&ssr, SsdAckPacket);
 
+    let mut was_manager = signals.is_manager();
+
     while signals.running() {
-         if signals.is_manager() {
+        if was_manager != signals.is_manager() {
+            was_manager = signals.is_manager();
+            if was_manager {
+                let mut buf = [0; BUFFER_SIZE];
+                while signals.running() && !socket.recv_from(&mut buf).is_err() {
+                    // Clear the buffer
+                }
+            }
+        }
+
+        if signals.is_manager() {
             listen_for_clients(&socket, &new_pc_tx, &ssra, &our_hostname);
         } else {
             let manager_found = find_manager(&socket, &new_pc_tx);
