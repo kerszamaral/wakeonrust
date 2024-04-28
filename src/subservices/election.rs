@@ -8,12 +8,12 @@ use crate::{
     }, pcinfo::PCInfo, signals::Signals
 };
 
-fn elect(signals: &Signals, socket: &UdpSocket) -> bool {
-    // election
+fn elected(signals: &Signals, socket: &UdpSocket) -> bool {
+    // Election variables
     let our_number = rand::random::<u32>();
     let mut someone_is_greater = false;
-    const MAX_TURNS: u32 = 10;
-    let mut turn_counter = MAX_TURNS;
+    const MAX_TURNS: u32 = 5;
+    let mut turns_left = MAX_TURNS;
 
     // Packets
     let gt_packet = make_header(SselGtPacket, 0);
@@ -21,11 +21,14 @@ fn elect(signals: &Signals, socket: &UdpSocket) -> bool {
     let mut packet = packet.to_vec();
     packet.extend_from_slice(&our_number.to_be_bytes());
     
-    while signals.running() && turn_counter > 0 {
-        // We send our number to the network
-        socket.send_to(&packet, ELECTION_BROADCAST_ADDR).unwrap();
-        let current_turn = turn_counter;
-        while signals.running() && current_turn == turn_counter{
+    while signals.running() && turns_left > 0 {
+        // We check if someone is greater than us
+        if !someone_is_greater {
+            // We send our number to the network
+            socket.send_to(&packet, ELECTION_BROADCAST_ADDR).unwrap();
+        }
+        let current_turn = turns_left;
+        while signals.running() && current_turn == turns_left{
             // We wait for the response
             let mut buf = [0; BUFFER_SIZE];
             match socket.recv_from(&mut buf) {
@@ -40,7 +43,9 @@ fn elect(signals: &Signals, socket: &UdpSocket) -> bool {
                             SselPacket => {
                                 // Election is still going on
                                 let number = u32::from_be_bytes([buf[5], buf[6], buf[7], buf[8]]);
+                                // We compare our number with the received number
                                 if our_number > number {
+                                    // We are greater than the other
                                     socket.send_to(&gt_packet, src).unwrap();
                                 }
                             }
@@ -56,7 +61,7 @@ fn elect(signals: &Signals, socket: &UdpSocket) -> bool {
                 Err(_) => {
                     // No response,
                     // We decrement the turn counter
-                    turn_counter -= 1;
+                    turns_left -= 1;
                 }
             }
         }
@@ -83,7 +88,7 @@ pub fn initialize(signals: &Signals) {
         } else {
             if !signals.manager_found() {
                 // We start the election
-                if elect(signals, &socket){
+                if elected(signals, &socket){
                     signals.i_am_manager();
                 }
             } else {
