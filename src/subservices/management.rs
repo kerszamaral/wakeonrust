@@ -7,6 +7,8 @@ use std::net::UdpSocket;
 use std::sync::{mpsc::Receiver, Mutex};
 
 pub mod exit {
+    use std::sync::mpsc::Sender;
+
     use crate::addrs::{EXIT_ADDR, EXIT_BROADCAST_ADDR, EXIT_SEND_ADDR};
 
     use super::*;
@@ -21,7 +23,10 @@ pub mod exit {
         socket.send_to(&exit_packet, EXIT_BROADCAST_ADDR).unwrap();
     }
 
-    pub fn receiver(signals: &Signals, m_pc_map: &Mutex<HashMap<String, PCInfo>>) {
+    pub fn receiver(
+        signals: &Signals,
+        exit_tx: Sender<String>,
+    ) {
         let socket = UdpSocket::bind(EXIT_ADDR).unwrap();
         socket.set_read_timeout(Some(WAIT_DELAY)).unwrap();
 
@@ -38,8 +43,7 @@ pub mod exit {
                         .map(|&c| c as char)
                         .collect::<String>();
 
-                    let mut pc_map = m_pc_map.lock().unwrap();
-                    pc_map.remove(&hostname);
+                    exit_tx.send(hostname).unwrap();
                 }
                 Err(_) => {}
             }
@@ -121,6 +125,26 @@ pub mod update {
                     let mut pc_map = m_pc_map.lock().unwrap();
                     if let Some(pc_info) = pc_map.get_mut(&hostname) {
                         pc_info.set_status(status);
+                        signals.send_update();
+                    }
+                }
+                Err(_) => {
+                    std::thread::sleep(CHECK_DELAY);
+                }
+            }
+        }
+    }
+
+    pub fn remove_pcs(
+        signals: &Signals,
+        m_pc_map: &Mutex<HashMap<String, PCInfo>>,
+        remove_rx: Receiver<String>,
+    ) {
+        while signals.running() {
+            match remove_rx.try_recv() {
+                Ok(hostname) => {
+                    let mut pc_map = m_pc_map.lock().unwrap();
+                    if pc_map.remove(&hostname).is_some() {
                         signals.send_update();
                     }
                 }
