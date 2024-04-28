@@ -4,6 +4,8 @@ use std::{
     sync::{mpsc::Receiver, Mutex},
 };
 
+use gethostname::gethostname;
+
 use crate::{
     addrs::{REPLICATION_ADDR, REPLICATION_BROADCAST_ADDR},
     delays::CHECK_DELAY,
@@ -80,6 +82,8 @@ pub fn initialize(
             was_manager = signals.is_manager();
             if was_manager {
                 let mut pc_map = m_pc_map.lock().unwrap();
+                let our_hostname = gethostname().into_string().unwrap();
+                rb_pc_map.remove(&our_hostname); // Remove our own PCInfo
                 pc_map.clear();
                 for pc_info in rb_pc_map.values() {
                     pc_map.insert(pc_info.get_name().clone(), pc_info.clone());
