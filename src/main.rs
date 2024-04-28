@@ -4,16 +4,14 @@ mod packets;
 mod pcinfo;
 mod signals;
 mod subservices;
-use crate::subservices::discovery;
-use crate::subservices::interface;
-use crate::subservices::management;
-use crate::subservices::monitoring;
 use pcinfo::PCInfo;
 use std::collections::HashMap;
 use std::sync::{mpsc::channel, Arc, Mutex};
 use std::{env, thread};
-use subservices::replication;
-use subservices::replication::UpdateType;
+use subservices::{
+    discovery, interface, management, monitoring, replication, replication::UpdateType,
+    election,
+};
 
 fn main() {
     let args = env::args().collect::<Vec<String>>();
@@ -99,6 +97,11 @@ fn main() {
     let ampc = am_pc_map.clone();
     thrds.push(thread::spawn(move || {
         replication::initialize(&sigs, &ampc, update_rx);
+    }));
+
+    let sigs = signals.clone();
+    thrds.push(thread::spawn(move || {
+        election::initialize(&sigs);
     }));
 
     for thrd in thrds.into_iter() {
