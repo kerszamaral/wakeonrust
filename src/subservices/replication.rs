@@ -9,7 +9,7 @@ use gethostname::gethostname;
 use crate::{
     addrs::{REPLICATION_ADDR, REPLICATION_BROADCAST_ADDR},
     delays::CHECK_DELAY,
-    packets::{check_packet, make_header, BUFFER_SIZE, HEADER_SIZE, SSREP_PACKET},
+    packets::{check_packet, make_header, BUFFER_SIZE, HEADER_SIZE, PacketType::SsrepPacket},
     pcinfo::PCInfo,
     signals::Signals,
 };
@@ -44,13 +44,13 @@ fn send_updates(
         }
     }
     buf.extend(pc_info.to_bytes());
-    let header = make_header(SSREP_PACKET, buf.len());
+    let header = make_header(SsrepPacket, buf.len());
     let packet = [header.to_vec(), buf].concat();
     socket.send_to(&packet, send_addr).unwrap();
 }
 
 fn receive_updates(buf: &[u8], amt: usize) -> Result<(UpdateType, PCInfo), ()> {
-    if check_packet(&buf[..amt], SSREP_PACKET).is_err() {
+    if check_packet(&buf[..amt], SsrepPacket).is_err() {
         return Err(());
     }
     let msg = &buf[HEADER_SIZE..amt];
