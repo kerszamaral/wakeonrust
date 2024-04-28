@@ -9,6 +9,7 @@ use crate::{
     delays::{CHECK_DELAY, WAIT_DELAY},
     signals::Signals,
 };
+use gethostname::gethostname;
 use mac_address::MacAddress;
 use std::net::UdpSocket;
 use std::sync::mpsc::Sender;
@@ -48,7 +49,7 @@ pub fn find_manager(socket: &UdpSocket, new_pc_tx: &Sender<PCInfo>) -> bool {
     }
 }
 
-pub fn listen_for_clients(socket: &UdpSocket, new_pc_tx: &Sender<PCInfo>, ssra: &Vec<u8>) {
+pub fn listen_for_clients(socket: &UdpSocket, new_pc_tx: &Sender<PCInfo>, ssra: &Vec<u8>, our_hosname: &String) {
     let mut buf = [0; BUFFER_SIZE];
     match socket.recv_from(&mut buf) {
         Ok((amt, src)) => {
@@ -56,6 +57,10 @@ pub fn listen_for_clients(socket: &UdpSocket, new_pc_tx: &Sender<PCInfo>, ssra: 
                 Some((hostname, mac)) => (hostname, mac),
                 None => return,
             };
+
+            if hostname == *our_hosname {
+                return;
+            }
 
             let new_client = PCInfo::new(hostname, mac, src.ip(), PCStatus::Online, false);
             new_pc_tx.send(new_client).unwrap();
@@ -75,6 +80,7 @@ pub fn discover(signals: &Signals, new_pc_tx: Sender<PCInfo>) {
         .set_read_timeout(Some(CHECK_DELAY))
         .expect("Failed to set discovery socket read timeout");
     socket.set_broadcast(true).unwrap();
+    let our_hostname = gethostname().into_string().unwrap();
 
     // Setup the SSR packet
     let our_mac = mac_address::get_mac_address()
@@ -93,8 +99,8 @@ pub fn discover(signals: &Signals, new_pc_tx: Sender<PCInfo>) {
     let ssra = swap_packet_type(&ssr, SsdAckPacket);
 
     while signals.running() {
-        if signals.is_manager() {
-            listen_for_clients(&socket, &new_pc_tx, &ssra);
+         if signals.is_manager() {
+            listen_for_clients(&socket, &new_pc_tx, &ssra, &our_hostname);
         } else {
             let manager_found = find_manager(&socket, &new_pc_tx);
 
