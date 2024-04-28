@@ -12,10 +12,12 @@ use pcinfo::PCInfo;
 use std::collections::HashMap;
 use std::sync::{mpsc::channel, Arc, Mutex};
 use std::{env, thread};
+use subservices::replication;
+use subservices::replication::UpdateType;
 
 fn main() {
     let args = env::args().collect::<Vec<String>>();
-    
+
     let start_as_manager = if args.len() > 1 && args[1] == "manager" {
         true
     } else {
@@ -27,13 +29,15 @@ fn main() {
     let sig = signals.clone();
     ctrlc::set_handler(move || {
         sig.exit();
-    }).unwrap();
-    
+    })
+    .unwrap();
+
     let am_pc_map = Arc::new(Mutex::new(HashMap::new()));
     let (wakeup_tx, wakeup_rx) = channel::<String>();
     let (new_pc_tx, new_pc_rx) = channel::<PCInfo>();
     let (remove_pc_tx, remove_pc_rx) = channel::<String>();
     let (sleep_status_tx, sleep_status_rx) = channel::<(String, pcinfo::PCStatus)>();
+    let (update_tx, update_rx) = channel::<(UpdateType, PCInfo)>();
 
     let mut thrds = Vec::<std::thread::JoinHandle<()>>::new();
 
@@ -72,20 +76,29 @@ fn main() {
 
     let sigs = signals.clone();
     let ampc = am_pc_map.clone();
+    let rb_update_tx = update_tx.clone();
     thrds.push(thread::spawn(move || {
-        management::add_pcs(&sigs, &ampc, new_pc_rx);
+        management::add_pcs(&sigs, &ampc, new_pc_rx, rb_update_tx);
+    }));
+
+    let sigs = signals.clone();
+    let ampc = am_pc_map.clone();
+    let rb_update_tx = update_tx.clone();
+    thrds.push(thread::spawn(move || {
+        management::update_statuses(&sigs, &ampc, sleep_status_rx, rb_update_tx);
+    }));
+
+    let sigs = signals.clone();
+    let ampc = am_pc_map.clone();
+    let rb_update_tx = update_tx.clone();
+    thrds.push(thread::spawn(move || {
+        management::remove_pcs(&sigs, &ampc, remove_pc_rx, rb_update_tx);
     }));
 
     let sigs = signals.clone();
     let ampc = am_pc_map.clone();
     thrds.push(thread::spawn(move || {
-        management::update_statuses(&sigs, &ampc, sleep_status_rx);
-    }));
-
-    let sigs = signals.clone();
-    let ampc = am_pc_map.clone();
-    thrds.push(thread::spawn(move || {
-        management::remove_pcs(&sigs, &ampc, remove_pc_rx);
+        replication::initialize(&sigs, &ampc, update_rx);
     }));
 
     for thrd in thrds.into_iter() {
