@@ -47,6 +47,8 @@ fn main() {
 
     let mut thrds = Vec::<std::thread::JoinHandle<()>>::new();
 
+    // Core part of the program
+
     let sigs = signals.clone();
     let ampc = am_pc_map.clone();
     thrds.push(thread::spawn(move || {
@@ -57,6 +59,25 @@ fn main() {
     thrds.push(thread::spawn(move || {
         interface::input::start(&sigs, wakeup_tx);
     }));
+
+    let sigs = signals.clone();
+    thrds.push(thread::spawn(move || {
+        election::initialize(&sigs);
+    }));
+
+    // while signals.running() && signals.electing() {
+    //     println!("Election in progress {}", signals.electing());
+    //     std::thread::sleep(delays::CHECK_DELAY);
+    // }
+
+    // if !signals.running() {
+    //     for thrd in thrds.into_iter() {
+    //         thrd.join().unwrap();
+    //     }
+    //     return;
+    // }
+
+    // Only initializes after first election
 
     let sigs = signals.clone();
     thrds.push(thread::spawn(move || {
@@ -106,11 +127,6 @@ fn main() {
     // thrds.push(thread::spawn(move || {
     //     replication::initialize(&sigs, &ampc, update_rx);
     // }));
-
-    let sigs = signals.clone();
-    thrds.push(thread::spawn(move || {
-        election::initialize(&sigs);
-    }));
 
     for thrd in thrds.into_iter() {
         thrd.join().unwrap();

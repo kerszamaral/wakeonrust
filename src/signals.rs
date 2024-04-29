@@ -6,6 +6,7 @@ pub struct Signals {
     update: AtomicBool,
     is_manager: AtomicBool,
     manager_found: AtomicBool,
+    electing: AtomicBool,
 }
 
 impl Signals {
@@ -15,6 +16,7 @@ impl Signals {
             update: AtomicBool::new(false),
             is_manager: AtomicBool::new(start_as_manager),
             manager_found: AtomicBool::new(false),
+            electing: AtomicBool::new(true),
         }
     }
 
@@ -63,6 +65,20 @@ impl Signals {
 
     pub fn manager_timed_out(&self) {
         self.manager_found
+            .store(false, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    pub fn electing(&self) -> bool {
+        self.electing.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    pub fn start_election(&self) {
+        self.electing
+            .store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    pub fn end_election(&self) {
+        self.electing
             .store(false, std::sync::atomic::Ordering::Relaxed);
     }
 }
