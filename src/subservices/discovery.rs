@@ -118,17 +118,13 @@ pub fn discover(signals: &Signals, new_pc_tx: Sender<PCInfo>) {
 
         if signals.is_manager() {
             listen_for_clients(&socket, &new_pc_tx, &ssra, &our_hostname);
-        } else {
+        } else if !signals.manager_found() {
             let manager_found = find_manager(&socket, &new_pc_tx);
 
             if manager_found {
                 signals.found_manager();
             } else {
                 socket.send_to(&ssr, DISCOVERY_BROADCAST_ADDR).unwrap();
-            }
-
-            while signals.running() && signals.manager_found() {
-                std::thread::sleep(CHECK_DELAY);
             }
         }
         std::thread::sleep(WAIT_DELAY);
