@@ -37,6 +37,11 @@ impl Signals {
             .store(true, std::sync::atomic::Ordering::Relaxed);
     }
 
+    pub fn relinquish_management(&self) {
+        self.is_manager
+            .store(false, std::sync::atomic::Ordering::Relaxed);
+    }
+
     pub fn has_update(&self) -> bool {
         self.update
             .compare_exchange(
@@ -63,7 +68,7 @@ impl Signals {
             .store(true, std::sync::atomic::Ordering::Relaxed);
     }
 
-    pub fn manager_timed_out(&self) {
+    pub fn lost_manager(&self) {
         self.manager_found
             .store(false, std::sync::atomic::Ordering::Relaxed);
     }
