@@ -5,7 +5,7 @@ use crate::{
         get_packet_type, make_header,
         PacketType::{SselFinPacket, SselGtPacket, SselPacket},
         BUFFER_SIZE,
-    }, pcinfo::PCInfo, signals::Signals
+    }, pcinfo::PCInfo, signals::{self, Signals}
 };
 
 fn elected(signals: &Signals, socket: &UdpSocket) -> bool {
@@ -87,15 +87,16 @@ pub fn initialize(signals: &Signals) {
             continue;
         } else {
             if !signals.manager_found() {
+                signals.start_election();
                 // We start the election
                 if elected(signals, &socket){
                     signals.i_am_manager();
                 }
-            } else {
-                // We found the manager
-                std::thread::sleep(CHECK_DELAY);
-                return;
-            }
+                signals.end_election();
+
+            } 
+            // We found the manager
+            std::thread::sleep(CHECK_DELAY);
         }
     }
 }

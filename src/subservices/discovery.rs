@@ -123,7 +123,7 @@ pub fn discover(signals: &Signals, new_pc_tx: Sender<PCInfo>) {
 
             if manager_found {
                 signals.found_manager();
-            } else {
+            } else if !signals.electing() {
                 socket.send_to(&ssr, DISCOVERY_BROADCAST_ADDR).unwrap();
             }
         }
