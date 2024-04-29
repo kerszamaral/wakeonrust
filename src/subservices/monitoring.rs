@@ -1,5 +1,9 @@
 use crate::delays::{CHECK_DELAY, WAIT_DELAY};
-use crate::packets::{check_packet, make_header, BUFFER_SIZE, PacketType::{SsrPacket, SsrAckPacket}};
+use crate::packets::{
+    check_packet, make_header,
+    PacketType::{SsrAckPacket, SsrPacket},
+    BUFFER_SIZE,
+};
 use crate::pcinfo::{PCInfo, PCStatus};
 use crate::signals::Signals;
 use std::collections::HashMap;
@@ -87,7 +91,17 @@ pub mod status {
                     Err(_) => {
                         if signals.manager_found() {
                             if manager_timeout == 0 {
-                                signals.manager_timed_out();
+                                let mut pc_map = m_pc_map.lock().unwrap();
+                                // find the manager and then remove it
+                                let manager = pc_map
+                                    .iter()
+                                    .find(|(_, v)| v.is_manager())
+                                    .map(|(k, _)| k.clone());
+                                if let Some(manager) = manager {
+                                    pc_map.remove(&manager);
+                                    signals.lost_manager();
+                                    signals.send_update();
+                                }
                             } else {
                                 manager_timeout -= 1;
                             }
@@ -103,7 +117,7 @@ pub mod status {
 pub mod exit {
     use crate::{
         addrs::{EXIT_ADDR, EXIT_BROADCAST_ADDR},
-        packets::{HEADER_SIZE, PacketType::SsePacket},
+        packets::{PacketType::SsePacket, HEADER_SIZE},
     };
 
     use super::*;

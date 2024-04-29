@@ -1,11 +1,14 @@
-use std::{collections::HashMap, net::UdpSocket, sync::Mutex};
+use std::net::UdpSocket;
 
 use crate::{
-    addrs::{ELECTION_ADDR, ELECTION_BROADCAST_ADDR}, delays::{CHECK_DELAY, ELECTION_FINISHED_DELAY, WAIT_DELAY}, packets::{
+    addrs::{ELECTION_ADDR, ELECTION_BROADCAST_ADDR},
+    delays::{CHECK_DELAY, ELECTION_DELAY, WAIT_DELAY},
+    packets::{
         get_packet_type, make_header,
         PacketType::{SselFinPacket, SselGtPacket, SselPacket},
         BUFFER_SIZE,
-    }, pcinfo::PCInfo, signals::{self, Signals}
+    },
+    signals::Signals,
 };
 
 fn elected(signals: &Signals, socket: &UdpSocket) -> bool {
@@ -20,7 +23,7 @@ fn elected(signals: &Signals, socket: &UdpSocket) -> bool {
     let packet = make_header(SselPacket, our_number.to_be_bytes().len());
     let mut packet = packet.to_vec();
     packet.extend_from_slice(&our_number.to_be_bytes());
-    
+
     while signals.running() && turns_left > 0 {
         // We check if someone is greater than us
         if !someone_is_greater {
@@ -28,7 +31,7 @@ fn elected(signals: &Signals, socket: &UdpSocket) -> bool {
             socket.send_to(&packet, ELECTION_BROADCAST_ADDR).unwrap();
         }
         let current_turn = turns_left;
-        while signals.running() && current_turn == turns_left{
+        while signals.running() && current_turn == turns_left {
             // We wait for the response
             let mut buf = [0; BUFFER_SIZE];
             match socket.recv_from(&mut buf) {
@@ -71,7 +74,7 @@ fn elected(signals: &Signals, socket: &UdpSocket) -> bool {
 
 pub fn initialize(signals: &Signals) {
     let socket = UdpSocket::bind(ELECTION_ADDR).unwrap();
-    socket.set_read_timeout(Some(WAIT_DELAY)).unwrap();
+    socket.set_read_timeout(Some(ELECTION_DELAY)).unwrap();
     socket.set_broadcast(true).unwrap();
 
     // Packets
@@ -79,22 +82,33 @@ pub fn initialize(signals: &Signals) {
 
     while signals.running() {
         if signals.is_manager() {
-            // We flood the network with the election finished packet
-            socket
-                .send_to(&finished_packet, ELECTION_BROADCAST_ADDR)
-                .unwrap();
-            std::thread::sleep(ELECTION_FINISHED_DELAY);
-            continue;
-        } else {
-            if !signals.manager_found() {
-                signals.start_election();
-                // We start the election
-                if elected(signals, &socket){
-                    signals.i_am_manager();
+            // We respond to election packets with a finished packet
+            let mut buf = [0; BUFFER_SIZE];
+            match socket.recv_from(&mut buf) {
+                Ok((amt, src)) => {
+                    if let Ok(packe_type) = get_packet_type(&buf[..amt]) {
+                        match packe_type {
+                            SselPacket => {
+                                socket.send_to(&finished_packet, src).unwrap();
+                            }
+                            _ => {}
+                        }
+                    }
                 }
-                signals.end_election();
+                Err(_) => {}
+            }
+        } else if !signals.manager_found() {
+            signals.start_election();
+            // We start the election
+            let has_been_elected = elected(signals, &socket);
+            signals.end_election();
 
-            } 
+            if has_been_elected {
+                signals.i_am_manager();
+            } else {
+                std::thread::sleep(WAIT_DELAY);
+            }
+        } else {
             // We found the manager
             std::thread::sleep(CHECK_DELAY);
         }
