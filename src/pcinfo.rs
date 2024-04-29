@@ -107,6 +107,14 @@ impl PCInfo {
         &self.is_manager
     }
 
+    pub fn set_is_manager(&mut self, is_manager: bool) {
+        self.is_manager = is_manager;
+    }
+
+    pub fn is_manager(&self) -> bool {
+        self.is_manager
+    }
+
     pub fn set_status(&mut self, status: PCStatus) {
         self.status = status;
     }

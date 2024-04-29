@@ -74,6 +74,7 @@ pub fn initialize(
 ) {
     let socket = UdpSocket::bind(REPLICATION_ADDR).unwrap();
     socket.set_nonblocking(true).unwrap();
+    socket.set_broadcast(true).unwrap();
     let mut rb_pc_map = m_pc_map.lock().unwrap().clone();
     let mut was_manager = signals.is_manager();
 
@@ -85,7 +86,10 @@ pub fn initialize(
                 let our_hostname = gethostname().into_string().unwrap();
                 rb_pc_map.remove(&our_hostname); // Remove our own PCInfo
                 pc_map.clear();
-                for pc_info in rb_pc_map.values() {
+                for pc_info in rb_pc_map.values_mut() {
+                    if *pc_info.get_is_manager() {
+                        pc_info.set_is_manager(false);
+                    }
                     pc_map.insert(pc_info.get_name().clone(), pc_info.clone());
                 }
                 signals.send_update();
@@ -128,6 +132,7 @@ pub fn initialize(
                         }
                         UpdateType::Drop => {
                             rb_pc_map.clear();
+                            signals.relinquish_management();
                         }
                     },
                     Err(_) => {
