@@ -15,19 +15,7 @@ services:
           path: .
     deploy:
       mode: replicated
-      replicas: 2
-
-  manager:
-    extends:
-      service: client
-    command: [
-      "cargo",
-      "run", 
-      # "manager"
-    ]
-    deploy:
-      mode: replicated
-      replicas: 1
+      replicas: 3
 
 
 networks:
