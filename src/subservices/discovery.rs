@@ -78,9 +78,6 @@ pub fn discover(signals: &Signals, new_pc_tx: Sender<PCInfo>) {
     // Setup the socket
     let socket = UdpSocket::bind(DISCOVERY_ADDR).expect("Failed to bind monitor socket");
     socket
-        .set_nonblocking(true)
-        .expect("Failed to set discovery socket to non-blocking mode");
-    socket
         .set_read_timeout(Some(CHECK_DELAY))
         .expect("Failed to set discovery socket read timeout");
     socket.set_broadcast(true).unwrap();
@@ -125,7 +122,6 @@ pub fn discover(signals: &Signals, new_pc_tx: Sender<PCInfo>) {
             } else if !signals.electing() {
                 socket.send_to(&ssr, DISCOVERY_BROADCAST_ADDR).unwrap();
             }
-            std::thread::sleep(WAIT_DELAY);
         }
     }
 }
