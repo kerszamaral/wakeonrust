@@ -98,7 +98,9 @@ pub fn initialize(
                     }
                     pc_map.insert(pc_info.get_name().clone(), pc_info.clone());
                 }
-                signals.send_update();
+                if !pc_map.is_empty() {
+                    signals.send_update();
+                }
             }
         }
 

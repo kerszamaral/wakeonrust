@@ -106,6 +106,7 @@ pub fn initialize(signals: &Signals) {
 
             if has_been_elected {
                 signals.i_am_manager();
+                signals.send_update();
             } else {
                 std::thread::sleep(WAIT_DELAY);
             }
