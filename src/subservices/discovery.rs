@@ -6,7 +6,7 @@ use crate::packets::{
 };
 use crate::pcinfo::{PCInfo, PCStatus};
 use crate::{
-    delays::{CHECK_DELAY, WAIT_DELAY},
+    delays::CHECK_DELAY,
     signals::Signals,
 };
 use gethostname::gethostname;
