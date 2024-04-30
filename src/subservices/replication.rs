@@ -5,21 +5,36 @@ use std::{
 };
 
 use gethostname::gethostname;
+use local_ip_address::local_ip;
 
 use crate::{
     addrs::{REPLICATION_ADDR, REPLICATION_BROADCAST_ADDR},
     delays::CHECK_DELAY,
-    packets::{check_packet, make_header, BUFFER_SIZE, HEADER_SIZE, PacketType::SsrepPacket},
-    pcinfo::PCInfo,
+    packets::{get_payload_typed, make_header, PacketType::SsrepPacket, BUFFER_SIZE},
+    pcinfo::{PCInfo, PCStatus},
     signals::Signals,
 };
 
 #[derive(Debug, PartialEq, Eq)]
+#[repr(u8)]
 pub enum UpdateType {
-    Add,
+    Add = 0x01,
     Remove,
     Change,
     Drop,
+}
+
+impl std::convert::TryFrom<u8> for UpdateType {
+    type Error = ();
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0x01 => Ok(UpdateType::Add),
+            0x02 => Ok(UpdateType::Remove),
+            0x03 => Ok(UpdateType::Change),
+            0x04 => Ok(UpdateType::Drop),
+            _ => Err(()),
+        }
+    }
 }
 
 fn send_updates(
@@ -29,39 +44,17 @@ fn send_updates(
     send_addr: SocketAddr,
 ) {
     let mut buf = Vec::new();
-    match update_type {
-        UpdateType::Add => {
-            buf.push(0x01);
-        }
-        UpdateType::Remove => {
-            buf.push(0x02);
-        }
-        UpdateType::Change => {
-            buf.push(0x03);
-        }
-        UpdateType::Drop => {
-            buf.push(0x04);
-        }
-    }
+    buf.push(update_type as u8);
     buf.extend(pc_info.to_bytes());
     let header = make_header(SsrepPacket, buf.len());
     let packet = [header.to_vec(), buf].concat();
     socket.send_to(&packet, send_addr).unwrap();
 }
 
-fn receive_updates(buf: &[u8], amt: usize) -> Result<(UpdateType, PCInfo), ()> {
-    if check_packet(&buf[..amt], SsrepPacket).is_err() {
-        return Err(());
-    }
-    let msg = &buf[HEADER_SIZE..amt];
-    let update_type = match msg[0] {
-        0x01 => UpdateType::Add,
-        0x02 => UpdateType::Remove,
-        0x03 => UpdateType::Change,
-        0x04 => UpdateType::Drop,
-        _ => return Err(()),
-    };
-    match PCInfo::from_bytes(&buf[1..amt]) {
+fn receive_updates(buf: &[u8]) -> Result<(UpdateType, PCInfo), ()> {
+    let msg = get_payload_typed(&buf, SsrepPacket)?;
+    let update_type = UpdateType::try_from(msg[0])?;
+    match PCInfo::from_bytes(&msg[1..]) {
         Ok(pc_info) => Ok((update_type, pc_info)),
         Err(_) => Err(()),
     }
@@ -78,15 +71,28 @@ pub fn initialize(
     let mut rb_pc_map = m_pc_map.lock().unwrap().clone();
     let mut was_manager = signals.is_manager();
 
+    // Our own PCInfo
+    let our_hostname = gethostname().into_string().unwrap();
+    let our_mac = mac_address::get_mac_address()
+        .unwrap()
+        .expect("Failed to get MAC address");
+    let our_ip = local_ip().expect("Failed to get local IP address");
+    // if we're the manager, when people net 
+    let our_status = PCStatus::Online;
+    let ourselves = PCInfo::new(our_hostname.clone(), our_mac, our_ip, our_status, false);
+    rb_pc_map.insert(our_hostname.clone(), ourselves);
+
     while signals.running() {
         if was_manager != signals.is_manager() {
             was_manager = signals.is_manager();
             if was_manager {
                 let mut pc_map = m_pc_map.lock().unwrap();
-                let our_hostname = gethostname().into_string().unwrap();
-                rb_pc_map.remove(&our_hostname); // Remove our own PCInfo
                 pc_map.clear();
                 for pc_info in rb_pc_map.values_mut() {
+                    if *pc_info.get_name() == our_hostname {
+                        // We don't want to add ourselves to the map
+                        continue;
+                    }
                     if *pc_info.get_is_manager() {
                         pc_info.set_is_manager(false);
                     }
@@ -99,9 +105,12 @@ pub fn initialize(
         if signals.is_manager() {
             match updates.try_recv() {
                 Ok((update_type, pc_info)) => {
-                    // If we are changing a PC's status to online,
-                    // it was offline before and we need to sync the backups
-                    if update_type == UpdateType::Change && pc_info.is_online() {
+                    // If a new pc joins,
+                    // or it's coming back online,
+                    // We need to send it the current state of the backup
+                    if update_type == UpdateType::Add
+                        || (update_type == UpdateType::Change && pc_info.is_online())
+                    {
                         let addr =
                             SocketAddr::new(pc_info.get_ip().clone(), REPLICATION_ADDR.port());
                         send_updates(&socket, &pc_info, UpdateType::Drop, addr);
@@ -112,14 +121,12 @@ pub fn initialize(
 
                     send_updates(&socket, &pc_info, update_type, REPLICATION_BROADCAST_ADDR);
                 }
-                Err(_) => {
-                    std::thread::sleep(CHECK_DELAY);
-                }
+                Err(_) => std::thread::sleep(CHECK_DELAY),
             }
         } else {
             let mut buf = [0; BUFFER_SIZE];
             match socket.recv_from(&mut buf) {
-                Ok((amt, _src)) => match receive_updates(&buf, amt) {
+                Ok((amt, _src)) => match receive_updates(&buf[..amt]) {
                     Ok((update_type, pc_info)) => match update_type {
                         UpdateType::Add => {
                             rb_pc_map.insert(pc_info.get_name().clone(), pc_info);
@@ -135,13 +142,9 @@ pub fn initialize(
                             signals.relinquish_management();
                         }
                     },
-                    Err(_) => {
-                        continue;
-                    }
+                    Err(_) => continue,
                 },
-                Err(_) => {
-                    std::thread::sleep(CHECK_DELAY);
-                }
+                Err(_) => std::thread::sleep(CHECK_DELAY),
             }
         }
     }
