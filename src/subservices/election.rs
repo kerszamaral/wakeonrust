@@ -4,7 +4,7 @@ use crate::{
     addrs::{ELECTION_ADDR, ELECTION_BROADCAST_ADDR},
     delays::{CHECK_DELAY, ELECTION_DELAY, WAIT_DELAY},
     packets::{
-        get_packet_type, make_header,
+        get_payload, get_packet_type, make_header,
         PacketType::{SselFinPacket, SselGtPacket, SselPacket},
         BUFFER_SIZE,
     },
@@ -44,8 +44,9 @@ fn elected(signals: &Signals, socket: &UdpSocket) -> bool {
                                 return false; // Exit election
                             }
                             SselPacket => {
+                                let msg = get_payload(&buf[..amt]).unwrap();
                                 // Election is still going on
-                                let number = u32::from_be_bytes([buf[5], buf[6], buf[7], buf[8]]);
+                                let number = u32::from_be_bytes([msg[0], msg[1], msg[2], msg[3]]);
                                 // We compare our number with the received number
                                 if our_number > number {
                                     // We are greater than the other

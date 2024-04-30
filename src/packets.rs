@@ -1,7 +1,7 @@
 use mac_address::MacAddress;
 
 pub const BUFFER_SIZE: usize = 1024;
-pub const HEADER_SIZE: usize = 5;
+pub const HEADER_SIZE: usize = 10;
 
 #[derive(Debug, PartialEq, Eq)]
 #[repr(u8)]
@@ -37,17 +37,22 @@ impl std::convert::TryFrom<u8> for PacketType {
 
 const MAGIC_NUMBER: u16 = 0xCA31;
 const MAGIC_NUMBER_INDEX: usize = 0;
-const PACKET_TYPE_INDEX: usize = 2;
-const LENGTH_INDEX: usize = 3;
+const PACKET_TYPE_INDEX: usize = 3;
+const LENGTH_INDEX: usize = 6;
 
 pub fn make_header(packet_type: PacketType, length: usize) -> [u8; HEADER_SIZE] {
     let length = length as u16;
     [
         (MAGIC_NUMBER >> 8) as u8,
         MAGIC_NUMBER as u8,
+        0,
         packet_type as u8,
+        0,
+        0,
         (length >> 8) as u8,
         length as u8,
+        0,
+        0,
     ]
 }
 
@@ -67,13 +72,27 @@ pub fn get_packet_type(packet: &[u8]) -> Result<PacketType, ()> {
     }
 }
 
+pub fn get_packet_length(packet: &[u8]) -> usize {
+    let length = (packet[LENGTH_INDEX] as usize) << 8 | packet[LENGTH_INDEX + 1] as usize;
+    length
+}
+
 pub fn check_packet(packet: &[u8], expected_packet_type: PacketType) -> Result<usize, ()> {
     let packet_type = get_packet_type(packet)?;
     if packet_type != expected_packet_type {
         return Err(());
     }
-    let length = (packet[LENGTH_INDEX] as usize) << 8 | packet[LENGTH_INDEX + 1] as usize;
-    Ok(length)
+    Ok(get_packet_length(packet))
+}
+
+pub fn get_payload(packet: &[u8]) -> Result<Vec<u8>, ()> {
+    let length = get_packet_length(packet);
+    Ok(packet[HEADER_SIZE..HEADER_SIZE + length].to_vec())
+}
+
+pub fn get_payload_typed(packet: &[u8], expected_packet_type: PacketType) -> Result<Vec<u8>, ()> {
+    check_packet(packet, expected_packet_type)?;
+    get_payload(packet)
 }
 
 pub fn make_wakeup_packet(mac: &MacAddress) -> Vec<u8> {
