@@ -64,6 +64,12 @@ fn main() {
     }));
 
     let sigs = signals.clone();
+    let ampc = am_pc_map.clone();
+    thrds.push(thread::spawn(move || {
+        replication::initialize(&sigs, &ampc, update_rx);
+    }));
+
+    let sigs = signals.clone();
     thrds.push(thread::spawn(move || {
         discovery::discover(&sigs, new_pc_tx);
     }));
@@ -104,12 +110,6 @@ fn main() {
     let rb_update_tx = update_tx.clone();
     thrds.push(thread::spawn(move || {
         management::remove_pcs(&sigs, &ampc, remove_pc_rx, rb_update_tx);
-    }));
-
-    let sigs = signals.clone();
-    let ampc = am_pc_map.clone();
-    thrds.push(thread::spawn(move || {
-        replication::initialize(&sigs, &ampc, update_rx);
     }));
 
     for thrd in thrds.into_iter() {
