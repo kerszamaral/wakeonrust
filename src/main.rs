@@ -1,4 +1,3 @@
-// #![allow(dead_code, unused_imports, unused_variables)]
 mod addrs;
 mod delays;
 mod packets;
@@ -8,22 +7,14 @@ mod subservices;
 use pcinfo::PCInfo;
 use std::collections::HashMap;
 use std::sync::{mpsc::channel, Arc, Mutex};
-use std::{env, thread};
+use std::thread;
 use subservices::{
     discovery, interface, management, monitoring, replication, replication::UpdateType,
     election,
 };
 
 fn main() {
-    let args = env::args().collect::<Vec<String>>();
-
-    let start_as_manager = if args.len() > 1 && args[1] == "manager" {
-        true
-    } else {
-        false
-    };
-
-    let signals = Arc::new(signals::Signals::new(start_as_manager));
+    let signals = Arc::new(signals::Signals::new(false));
 
     let sigs = signals.clone();
     let old_panic = std::panic::take_hook();
