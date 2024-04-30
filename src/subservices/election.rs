@@ -46,7 +46,7 @@ fn elected(signals: &Signals, socket: &UdpSocket) -> bool {
                             SselPacket => {
                                 let msg = get_payload(&buf[..amt]).unwrap();
                                 // Election is still going on
-                                let number = u32::from_be_bytes([msg[0], msg[1], msg[2], msg[3]]);
+                                let number = u32::from_be_bytes(msg[..4].try_into().unwrap());
                                 // We compare our number with the received number
                                 if our_number > number {
                                     // We are greater than the other
