@@ -1,8 +1,8 @@
 use crate::addrs::{DISCOVERY_ADDR, DISCOVERY_BROADCAST_ADDR};
 use crate::packets::{
-    check_packet, make_header, swap_packet_type, PacketType,
+    get_payload_typed, make_header, swap_packet_type, PacketType,
     PacketType::{SsdAckPacket, SsdPacket},
-    BUFFER_SIZE, HEADER_SIZE,
+    BUFFER_SIZE,
 };
 use crate::pcinfo::{PCInfo, PCStatus};
 use crate::{
@@ -15,11 +15,10 @@ use std::net::UdpSocket;
 use std::sync::mpsc::Sender;
 
 fn from_buffer(buf: &[u8], amt: usize, packet_type: PacketType) -> Option<(String, MacAddress)> {
-    let msg = &buf[..amt];
-    if check_packet(&msg.to_vec(), packet_type).is_err() {
-        return None;
-    }
-    let msg = &buf[HEADER_SIZE..amt];
+    let msg = match get_payload_typed(&buf[..amt], packet_type) {
+        Ok(msg) => msg,
+        Err(_) => return None,
+    };
 
     const MAC_SIZE: usize = 6;
     let hostname_bytes = &msg[MAC_SIZE..];
@@ -118,7 +117,7 @@ pub fn discover(signals: &Signals, new_pc_tx: Sender<PCInfo>) {
 
         if signals.is_manager() {
             listen_for_clients(&socket, &new_pc_tx, &ssra, &our_hostname);
-        } else if !signals.manager_found()  {
+        } else if !signals.manager_found() {
             let manager_found = find_manager(&socket, &new_pc_tx);
 
             if manager_found {
