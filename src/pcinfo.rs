@@ -12,9 +12,21 @@ extern crate mac_address;
 use mac_address::MacAddress;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[repr(u8)]
 pub enum PCStatus {
-    Online,
+    Online = 0x01,
     Offline,
+}
+
+impl std::convert::TryFrom<u8> for PCStatus {
+    type Error = ();
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0x01 => Ok(PCStatus::Online),
+            0x02 => Ok(PCStatus::Offline),
+            _ => Err(()),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -45,13 +57,9 @@ impl PCInfo {
 
     pub fn from_bytes(bytes: &[u8]) -> Result<PCInfo, ()> {
         let is_manager = bytes[0] == 0x01;
-        let status = match bytes[1] {
-            0x01 => PCStatus::Online,
-            0x02 => PCStatus::Offline,
-            _ => return Err(()),
-        };
+        let status = PCStatus::try_from(bytes[1])?;
         let ip = IpAddr::V4(Ipv4Addr::new(bytes[2], bytes[3], bytes[4], bytes[5]));
-        let mac = MacAddress::new([bytes[6], bytes[7], bytes[8], bytes[9], bytes[10], bytes[11]]);
+        let mac = MacAddress::new(bytes[6..12].try_into().unwrap());
         let name = String::from_utf8(bytes[12..].to_vec()).unwrap();
         Ok(PCInfo {
             name,
@@ -65,10 +73,7 @@ impl PCInfo {
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::new();
         bytes.push(if self.is_manager { 0x01 } else { 0x00 });
-        bytes.push(match self.status {
-            PCStatus::Online => 0x01,
-            PCStatus::Offline => 0x02,
-        });
+        bytes.push(self.status.clone() as u8);
         match self.ip {
             IpAddr::V4(ip) => {
                 bytes.push(ip.octets()[0]);
