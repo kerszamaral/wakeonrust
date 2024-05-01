@@ -1,10 +1,10 @@
-use std::net::UdpSocket;
+use std::{net::UdpSocket, time::Instant};
 
 use crate::{
     addrs::{ELECTION_ADDR, ELECTION_BROADCAST_ADDR},
-    delays::{CHECK_DELAY, ELECTION_DELAY, WAIT_DELAY},
+    delays::{CHECK_DELAY, ELECTION_DELAY, MANAGER_TIMEOUT, WAIT_DELAY},
     packets::{
-        get_payload, get_packet_type, make_header,
+        get_packet_type, get_payload, make_header,
         PacketType::{SselFinPacket, SselGtPacket, SselPacket},
         BUFFER_SIZE,
     },
@@ -80,9 +80,14 @@ pub fn initialize(signals: &Signals) {
 
     // Packets
     let finished_packet = make_header(SselFinPacket, 0);
+    let mut last_seen = Instant::now();
 
     while signals.running() {
         if signals.is_manager() {
+            if last_seen.elapsed() >= MANAGER_TIMEOUT {
+                signals.relinquish_management();
+            }
+            last_seen = Instant::now();
             // We respond to election packets with a finished packet
             let mut buf = [0; BUFFER_SIZE];
             match socket.recv_from(&mut buf) {
@@ -107,6 +112,7 @@ pub fn initialize(signals: &Signals) {
             if has_been_elected {
                 signals.i_am_manager();
                 signals.send_update();
+                last_seen = Instant::now();
             } else {
                 std::thread::sleep(WAIT_DELAY);
             }

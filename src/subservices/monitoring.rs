@@ -11,8 +11,13 @@ use std::net::{IpAddr, SocketAddr, UdpSocket};
 use std::sync::{mpsc::Sender, Mutex};
 
 pub mod status {
+    use std::time::Instant;
+
     use super::*;
-    use crate::addrs::{MONITOR_ADDR, MONITOR_PORT};
+    use crate::{
+        addrs::{MONITOR_ADDR, MONITOR_PORT},
+        delays::MANAGER_TIMEOUT,
+    };
 
     fn response_from_client(signals: &Signals, socket: &UdpSocket) -> PCStatus {
         while signals.running() {
@@ -65,8 +70,7 @@ pub mod status {
         socket
             .set_read_timeout(Some(WAIT_DELAY))
             .expect("Failed to set monitor socket read timeout");
-        const MAX_TIMEOUT: u32 = 5;
-        let mut manager_timeout = MAX_TIMEOUT;
+        let mut manager_last_seen = Instant::now();
 
         while signals.running() {
             if signals.is_manager() {
@@ -86,25 +90,17 @@ pub mod status {
                         }
                         let ssra = make_header(SsrAckPacket, 0);
                         socket.send_to(&ssra, src).unwrap();
-                        manager_timeout = MAX_TIMEOUT;
+                        manager_last_seen = Instant::now();
                     }
                     Err(_) => {
-                        if signals.manager_found() {
-                            if manager_timeout == 0 {
-                                let mut pc_map = m_pc_map.lock().unwrap();
-                                // find the manager and then remove it
-                                let manager = pc_map
-                                    .iter()
-                                    .find(|(_, v)| v.is_manager())
-                                    .map(|(k, _)| k.clone());
-                                if let Some(manager) = manager {
-                                    pc_map.remove(&manager);
-                                    signals.lost_manager();
-                                    signals.send_update();
-                                }
-                            } else {
-                                manager_timeout -= 1;
-                            }
+                        if signals.manager_found() && manager_last_seen.elapsed() >= MANAGER_TIMEOUT
+                        {
+                            let mut pc_map = m_pc_map.lock().unwrap();
+
+                            // find the manager and then remove it
+                            pc_map.retain(|_, v| !v.is_manager());
+                            signals.lost_manager();
+                            signals.send_update();
                         }
                     }
                 }

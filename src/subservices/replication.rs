@@ -77,7 +77,7 @@ pub fn initialize(
         .unwrap()
         .expect("Failed to get MAC address");
     let our_ip = local_ip().expect("Failed to get local IP address");
-    // if we're the manager, when people net 
+    // if we're the manager, when people net
     let our_status = PCStatus::Online;
     let ourselves = PCInfo::new(our_hostname.clone(), our_mac, our_ip, our_status, false);
     rb_pc_map.insert(our_hostname.clone(), ourselves);
@@ -98,6 +98,14 @@ pub fn initialize(
                     }
                     pc_map.insert(pc_info.get_name().clone(), pc_info.clone());
                 }
+                if !pc_map.is_empty() {
+                    signals.send_update();
+                }
+            } else {
+                // We are no longer the manager
+                let mut pc_map = m_pc_map.lock().unwrap();
+                // remove everything but the manager, if there is any
+                pc_map.retain(|_, v| v.is_manager());
                 if !pc_map.is_empty() {
                     signals.send_update();
                 }
@@ -141,7 +149,6 @@ pub fn initialize(
                         }
                         UpdateType::Drop => {
                             rb_pc_map.clear();
-                            signals.relinquish_management();
                         }
                     },
                     Err(_) => continue,
