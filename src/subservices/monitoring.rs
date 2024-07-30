@@ -19,13 +19,16 @@ pub mod status {
         delays::MANAGER_TIMEOUT,
     };
 
-    fn response_from_client(signals: &Signals, socket: &UdpSocket) -> PCStatus {
+    fn response_from_client(signals: &Signals, socket: &UdpSocket, ip: &IpAddr) -> PCStatus {
         while signals.running() {
             let mut buf = [0; BUFFER_SIZE];
             match socket.recv_from(&mut buf) {
-                Ok((amt, _src)) => {
+                Ok((amt, src)) => {
                     if check_packet(&buf[..amt], SsrAckPacket).is_err() {
                         continue; // Ignore invalid packets
+                    }
+                    if src.ip() != *ip {
+                        continue;
                     }
                     return PCStatus::Online;
                 }
@@ -49,11 +52,21 @@ pub mod status {
                 break;
             }
             let addr = SocketAddr::new(*ip, MONITOR_PORT);
-            socket
-                .send_to(&ssr, addr)
-                .expect("Failed to send to client");
-
-            let new_status = response_from_client(&signals, &socket);
+            let mut tries = 2;
+            let new_status = loop {
+                socket
+                    .send_to(&ssr, addr)
+                    .expect("Failed to send to client");
+                match response_from_client(&signals, &socket, ip) {
+                    PCStatus::Online => break PCStatus::Online,
+                    PCStatus::Offline => {
+                        if tries == 0 {
+                            break PCStatus::Offline;
+                        }
+                        tries -= 1;
+                    }
+                }
+            };
             if new_status == *status {
                 continue;
             }
