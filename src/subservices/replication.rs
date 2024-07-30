@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    net::{SocketAddr, UdpSocket},
+    net::UdpSocket,
     sync::{mpsc::Receiver, Mutex},
 };
 
@@ -10,7 +10,7 @@ use local_ip_address::local_ip;
 use crate::{
     addrs::{REPLICATION_ADDR, REPLICATION_BROADCAST_ADDR},
     delays::CHECK_DELAY,
-    packets::{get_payload_typed, make_header, PacketType::SsrepPacket, BUFFER_SIZE},
+    packets::{HEADER_SIZE, get_packet_length, make_header, PacketType::SsrepPacket, BUFFER_SIZE},
     pcinfo::{PCInfo, PCStatus},
     signals::Signals,
 };
@@ -21,7 +21,6 @@ pub enum UpdateType {
     Add = 0x01,
     Remove,
     Change,
-    Drop,
 }
 
 impl std::convert::TryFrom<u8> for UpdateType {
@@ -31,33 +30,36 @@ impl std::convert::TryFrom<u8> for UpdateType {
             0x01 => Ok(UpdateType::Add),
             0x02 => Ok(UpdateType::Remove),
             0x03 => Ok(UpdateType::Change),
-            0x04 => Ok(UpdateType::Drop),
             _ => Err(()),
         }
     }
 }
 
-fn send_updates(
-    socket: &UdpSocket,
-    pc_info: &PCInfo,
-    update_type: UpdateType,
-    send_addr: SocketAddr,
-) {
-    let mut buf = Vec::new();
-    buf.push(update_type as u8);
-    buf.extend(pc_info.to_bytes());
-    let header = make_header(SsrepPacket, buf.len());
-    let packet = [header.to_vec(), buf].concat();
-    socket.send_to(&packet, send_addr).unwrap();
+fn receive_update(buf: &[u8]) -> Result<(HashMap<String, PCInfo>, u32), ()> {
+    let mut num_entries = get_packet_length(buf);
+    let msg = buf[HEADER_SIZE..].to_vec();
+    let mut pc_map = HashMap::new();
+    let table_version = u32::from_be_bytes(msg[..4].try_into().unwrap());
+    let mut index = 4;
+    while num_entries != 0 {
+        match PCInfo::from_bytes(&msg[index..]) {
+            Ok((pc_info, used)) => {
+                pc_map.insert(pc_info.get_name().clone(), pc_info);
+                index += used;
+                num_entries -= 1;
+            }
+            Err(_) => return Err(()),
+        }
+    }
+    Ok((pc_map, table_version))
 }
 
-fn receive_updates(buf: &[u8]) -> Result<(UpdateType, PCInfo), ()> {
-    let msg = get_payload_typed(&buf, SsrepPacket)?;
-    let update_type = UpdateType::try_from(msg[0])?;
-    match PCInfo::from_bytes(&msg[1..]) {
-        Ok(pc_info) => Ok((update_type, pc_info)),
-        Err(_) => Err(()),
+pub fn serialize_pc_map(pc_map: &HashMap<String, PCInfo>) -> Vec<u8> {
+    let mut buf = Vec::new();
+    for pc_info in pc_map.values() {
+        buf.extend(pc_info.to_bytes());
     }
+    buf
 }
 
 pub fn initialize(
@@ -115,29 +117,9 @@ pub fn initialize(
         if signals.is_manager() {
             match updates.try_recv() {
                 Ok((update_type, pc_info)) => {
-                    // If a new pc joins,
-                    // or it's coming back online,
-                    // We need to send it the current state of the backup
-                    if update_type == UpdateType::Add
-                        || (update_type == UpdateType::Change && pc_info.is_online())
-                    {
-                        let addr =
-                            SocketAddr::new(pc_info.get_ip().clone(), REPLICATION_ADDR.port());
-                        send_updates(&socket, &pc_info, UpdateType::Drop, addr);
-                        for pc_info in rb_pc_map.values() {
-                            send_updates(&socket, &pc_info, UpdateType::Add, addr);
-                        }
-                    }
-
-                    send_updates(&socket, &pc_info, update_type, REPLICATION_BROADCAST_ADDR);
-                }
-                Err(_) => std::thread::sleep(CHECK_DELAY),
-            }
-        } else {
-            let mut buf = [0; BUFFER_SIZE];
-            match socket.recv_from(&mut buf) {
-                Ok((amt, _src)) => match receive_updates(&buf[..amt]) {
-                    Ok((update_type, pc_info)) => match update_type {
+                    // Update backup table
+                    let curr_table_version = signals.update_table_version();
+                    match update_type {
                         UpdateType::Add => {
                             rb_pc_map.insert(pc_info.get_name().clone(), pc_info);
                         }
@@ -147,10 +129,28 @@ pub fn initialize(
                         UpdateType::Change => {
                             rb_pc_map.insert(pc_info.get_name().clone(), pc_info);
                         }
-                        UpdateType::Drop => {
-                            rb_pc_map.clear();
-                        }
-                    },
+                    }
+
+                    // Serialize the PC map
+                    let mut buf = Vec::new();
+                    buf.extend(curr_table_version.to_be_bytes().iter());
+                    buf.extend(serialize_pc_map(&rb_pc_map).iter());
+                    let header = make_header(SsrepPacket, rb_pc_map.len());
+                    let packet = [header.to_vec(), buf].concat();
+
+                    // Send the update
+                    socket.send_to(&packet, REPLICATION_BROADCAST_ADDR).unwrap();
+                }
+                Err(_) => std::thread::sleep(CHECK_DELAY),
+            }
+        } else {
+            let mut buf = [0; BUFFER_SIZE];
+            match socket.recv_from(&mut buf) {
+                Ok((amt, _src)) => match receive_update(&buf[..amt]) {
+                    Ok((pc_map, table_version)) => {
+                        rb_pc_map = pc_map;
+                        signals.overwrite_table_version(table_version);
+                    }
                     Err(_) => continue,
                 },
                 Err(_) => std::thread::sleep(CHECK_DELAY),

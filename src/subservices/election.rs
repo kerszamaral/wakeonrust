@@ -13,7 +13,7 @@ use crate::{
 
 fn elected(signals: &Signals, socket: &UdpSocket) -> bool {
     // Election variables
-    let our_number = rand::random::<u32>();
+    let our_number = signals.current_table_version();
     let mut someone_is_greater = false;
     const MAX_TURNS: u32 = 5;
     let mut turns_left = MAX_TURNS;
