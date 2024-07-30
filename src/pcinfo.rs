@@ -56,38 +56,48 @@ impl PCInfo {
     }
 
     pub fn from_bytes(bytes: &[u8]) -> Result<(PCInfo, usize), ()> {
-        const HOSTNAME_LEN_SIZE: u32 = usize::BITS / 8;
-        let bytes_vec = bytes.to_vec();
-        let mut index = 0;
-        let hostname_len = u32::from_be_bytes(
-            bytes_vec[index..index + HOSTNAME_LEN_SIZE as usize].try_into().unwrap(),
+        const HSTNM_LEN_BYTES: usize = std::mem::size_of::<usize>();
+        let hostname_len_bytes = match bytes[..HSTNM_LEN_BYTES].try_into() {
+            Ok(bytes) => bytes,
+            Err(_) => {
+                return Err(())},
+        };
+        let hostname_len = usize::from_be_bytes(
+            hostname_len_bytes,
         ) as usize;
-        index += HOSTNAME_LEN_SIZE as usize;
-        let hostname = String::from_utf8(bytes_vec[index..index + hostname_len].to_vec()).unwrap();
-        index += hostname_len;
+        let mut bytes_used: usize = HSTNM_LEN_BYTES;
+
+        let hostname = String::from_utf8(bytes[bytes_used..bytes_used + hostname_len].to_vec()).unwrap();
+        bytes_used += hostname_len;
+    
         let mac = MacAddress::new(
-            bytes_vec[index..index + 6]
+            bytes[bytes_used..bytes_used + 6]
                 .try_into()
                 .map_err(|_| ())?,
         );
-        index += 6;
+        bytes_used += 6;
+
         let ip = IpAddr::V4(Ipv4Addr::new(
-            bytes_vec[index],
-            bytes_vec[index + 1],
-            bytes_vec[index + 2],
-            bytes_vec[index + 3],
+            bytes[bytes_used],
+            bytes[bytes_used + 1],
+            bytes[bytes_used + 2],
+            bytes[bytes_used + 3],
         ));
-        index += 4;
-        let status = PCStatus::try_from(bytes_vec[index]).map_err(|_| ())?;
-        index += 1;
-        let is_manager = bytes_vec[index] == 0x01;
+        bytes_used += 4;
+
+        let status = PCStatus::try_from(bytes[bytes_used]).map_err(|_| ())?;
+        bytes_used += 1;
+
+        let is_manager = bytes[bytes_used] == 0x01;
+        bytes_used += 1;
+        
         Ok((PCInfo {
             name: hostname,
             mac,
             ip,
             status,
             is_manager,
-        }, index))
+        }, bytes_used))
 
     }
 
