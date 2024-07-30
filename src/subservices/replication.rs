@@ -38,14 +38,14 @@ impl std::convert::TryFrom<u8> for UpdateType {
 fn receive_update(buf: &[u8]) -> Result<(HashMap<String, PCInfo>, u32), ()> {
     let mut num_entries = get_packet_length(buf);
     let msg = buf[HEADER_SIZE..].to_vec();
-    let mut pc_map = HashMap::new();
     let table_version = u32::from_be_bytes(msg[..4].try_into().unwrap());
-    let mut index = 4;
-    while num_entries != 0 {
-        match PCInfo::from_bytes(&msg[index..]) {
+    let mut bytes_used: usize = 4;
+    let mut pc_map = HashMap::new();
+    while num_entries > 0 {
+        match PCInfo::from_bytes(&msg[bytes_used..]) {
             Ok((pc_info, used)) => {
                 pc_map.insert(pc_info.get_name().clone(), pc_info);
-                index += used;
+                bytes_used += used;
                 num_entries -= 1;
             }
             Err(_) => return Err(()),
